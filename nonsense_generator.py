@@ -15,21 +15,25 @@ def main() -> None:
                        help="Markov chain order (default: 2)")
     parser.add_argument("--min-prob", type=float, default=0.1,
                        help="Minimum relative probability threshold (default: 0.1)")
+    parser.add_argument("--verbose", "-v", action="store_true",
+                       help="Print detailed initialization messages")
     
     args = parser.parse_args()
     
     if args.markov:
-        print("Initializing Markov chain generator...")
-        gen = MarkovWordGenerator(order=args.order, min_relative_prob=args.min_prob)
+        if args.verbose:
+            print("Initializing Markov chain generator...")
+        gen = MarkovWordGenerator(order=args.order, min_relative_prob=args.min_prob, verbose=args.verbose)
         generator_type = f"order-{gen.order} Markov chains"
         extra_info = f"Minimum relative probability threshold: {gen.min_relative_prob}"
     else:
-        print("Initializing syllable-based generator...")
+        if args.verbose:
+            print("Initializing syllable-based generator...")
         gen = SyllableWordGenerator()
         generator_type = "syllable components"
         extra_info = ""
     
-    print("\nWords (6-12 chars):")
+    print("Words (6-12 chars):")
     words = gen.generate_batch(20, 6, 12)
     for i in range(0, len(words), 5):
         print("  ".join(f"{w:<12}" for w in words[i:i+5]))
@@ -43,13 +47,14 @@ def main() -> None:
     key = "-".join(gen.generate_batch(3, 4, 8))
     print(key)
     
-    if hasattr(gen, 'words'):
-        print(f"\nGenerated from {len(gen.words)} training words using {generator_type}")
-    else:
-        print(f"\nGenerated using {generator_type}")
+    if args.verbose:
+        if hasattr(gen, 'words'):
+            print(f"\nGenerated from {len(gen.words)} training words using {generator_type}")
+        else:
+            print(f"\nGenerated using {generator_type}")
     
-    if extra_info:
-        print(extra_info)
+        if extra_info:
+            print(extra_info)
 
 if __name__ == "__main__":
     main()

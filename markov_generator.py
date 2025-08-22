@@ -3,6 +3,7 @@
 import secrets
 import urllib.request
 import os
+import pickle
 from collections import defaultdict, Counter
 from typing import List, Dict, Optional
 
@@ -10,35 +11,43 @@ from typing import List, Dict, Optional
 class MarkovWordGenerator:
     """Generate pronounceable nonsense words using Markov chains trained on English words."""
     
-    def __init__(self, order: int = 2, word_file: Optional[str] = None, min_relative_prob: float = 0.1) -> None:
+    def __init__(self, order: int = 2, word_file: Optional[str] = None, min_relative_prob: float = 0.1, verbose: bool = False) -> None:
         """Initialize the Markov chain generator.
         
         Args:
             order: The order of the Markov chain (number of characters to look back)
             word_file: Path to word list file, downloads if None
             min_relative_prob: Minimum probability relative to the most likely choice (0.0-1.0)
+            verbose: Print detailed initialization messages
         """
         self.order = order
         self.min_relative_prob = min_relative_prob
+        self.verbose = verbose
         self.chains: Dict[str, Counter] = defaultdict(Counter)
         self.start_chains: Counter = Counter()
         self.word_file = word_file or "words.txt"
+        self.cache_file = f"markov_chains_order{order}.pkl"
         
         self._load_words()
-        self._build_chains()
+        self._load_or_build_chains()
+
+    def _vprint(self, *args, **kwargs) -> None:
+        """Print only if verbose mode is enabled."""
+        if self.verbose:
+            print(*args, **kwargs)
 
     def _download_words(self) -> None:
         """Download a word list if it doesn't exist."""
         if os.path.exists(self.word_file):
             return
             
-        print(f"Downloading word list to {self.word_file}...")
+        self._vprint(f"Downloading word list to {self.word_file}...")
         # Using SCOWL (Spell Checker Oriented Word Lists) - common English words
         url = "https://raw.githubusercontent.com/dwyl/english-words/master/words_alpha.txt"
         
         try:
             urllib.request.urlretrieve(url, self.word_file)
-            print(f"Downloaded {self.word_file}")
+            self._vprint(f"Downloaded {self.word_file}")
         except Exception as e:
             print(f"Failed to download word list: {e}")
             # Fallback to a smaller built-in list
@@ -54,7 +63,7 @@ class MarkovWordGenerator:
         with open(self.word_file, 'w') as f:
             for word in fallback_words:
                 f.write(word + '\n')
-        print(f"Created fallback word list: {self.word_file}")
+        self._vprint(f"Created fallback word list: {self.word_file}")
 
     def _load_words(self) -> None:
         """Load words from file, downloading if necessary."""
@@ -67,7 +76,7 @@ class MarkovWordGenerator:
                     word = line.strip().lower()
                     if word and word.isalpha() and 2 <= len(word) <= 15:
                         self.words.append(word)
-            print(f"Loaded {len(self.words)} words from {self.word_file}")
+            self._vprint(f"Loaded {len(self.words)} words from {self.word_file}")
         except Exception as e:
             print(f"Error loading words: {e}")
             self.words = ["hello", "world", "python", "code"]
@@ -93,7 +102,75 @@ class MarkovWordGenerator:
                 next_char = padded_word[i + self.order]
                 self.chains[ngram][next_char] += 1
         
-        print(f"Built Markov chains with {len(self.chains)} states")
+        self._vprint(f"Built Markov chains with {len(self.chains)} states")
+        self._save_chains()
+
+    def _load_or_build_chains(self) -> None:
+        """Load chains from cache or build them if cache doesn't exist or is outdated."""
+        if self._should_rebuild_cache():
+            self._vprint("Building Markov chains...")
+            self._build_chains()
+        else:
+            self._vprint(f"Loading cached chains from {self.cache_file}...")
+            self._load_chains()
+
+    def _should_rebuild_cache(self) -> bool:
+        """Check if we need to rebuild the cache."""
+        if not os.path.exists(self.cache_file):
+            return True
+        
+        # Check if word file is newer than cache
+        if os.path.exists(self.word_file):
+            word_file_time = os.path.getmtime(self.word_file)
+            cache_file_time = os.path.getmtime(self.cache_file)
+            if word_file_time > cache_file_time:
+                return True
+        
+        return False
+
+    def _save_chains(self) -> None:
+        """Save the built chains to a pickle file."""
+        try:
+            cache_data = {
+                'chains': dict(self.chains),  # Convert defaultdict to regular dict
+                'start_chains': self.start_chains,
+                'word_set': self.word_set,
+                'order': self.order,
+                'word_count': len(self.words)
+            }
+            with open(self.cache_file, 'wb') as f:
+                pickle.dump(cache_data, f)
+            self._vprint(f"Saved chains to cache: {self.cache_file}")
+        except Exception as e:
+            print(f"Warning: Could not save cache: {e}")
+
+    def _load_chains(self) -> None:
+        """Load chains from pickle file."""
+        try:
+            with open(self.cache_file, 'rb') as f:
+                cache_data = pickle.load(f)
+            
+            # Verify the cache is for the same order
+            if cache_data.get('order') != self.order:
+                self._vprint("Cache order mismatch, rebuilding...")
+                self._build_chains()
+                return
+            
+            # Convert back to defaultdict
+            self.chains = defaultdict(Counter)
+            for key, counter in cache_data['chains'].items():
+                self.chains[key] = counter
+            
+            self.start_chains = cache_data['start_chains']
+            self.word_set = cache_data['word_set']
+            
+            self._vprint(f"Loaded {len(self.chains)} chain states from cache")
+            self._vprint(f"Using {cache_data['word_count']} cached training words")
+            
+        except Exception as e:
+            self._vprint(f"Error loading cache: {e}")
+            self._vprint("Rebuilding chains...")
+            self._build_chains()
 
     def _weighted_choice(self, counter: Counter) -> str:
         """Choose randomly from a Counter, filtering by relative probability to the most likely choice."""
