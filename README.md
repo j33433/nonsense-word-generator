@@ -1,6 +1,6 @@
 # Nonsense Word Generator
 
-Generates pronounceable nonsense words that sound like English but aren't.
+Generates pronounceable nonsense words that sound like English but probably aren't.
 
 ## Installation
 
@@ -17,23 +17,40 @@ from nonsense_generator import NonsenseWordGenerator
 
 generator = NonsenseWordGenerator()
 
-# Generate 10 words
-words = generator.generate_words(10)
+# Generate a single word
+word = generator.generate()
+print(word)
+
+# Generate a single word with specific length
+word = generator.generate(min_len=6, max_len=12)
+print(word)
+
+# Generate multiple words
+words = generator.generate_batch(10)
 print(words)
 
-# Generate words with specific lengths
-words = generator.generate_words(5, min_length=6, max_length=12)
-
-# Print in grid format
-generator.print_words_in_grid(words)
+# Generate multiple words with specific lengths
+words = generator.generate_batch(5, min_len=6, max_len=12)
+print(words)
 ```
 
 ## Example Output
 
 ```
-declails        excros          atoriers        strogamedings   purivesdayer   
-actulistyr      deliecolled     genduckling     wellin          fathructs      
-frieverget      sanize          terisk          valvergereing   lowassess      
+Words (6-12 chars):
+nieoumpzi     bairpoat      froocthikcra  twaybismea    ceelaiftraip
+tweeicheenk   stipekel      maisnaund     bleaoutousk   mustremp
+rayptslaijai  heeeazielp    graygloo      souslaoslais  giseafdroomp
+lidrieayrm    reysliest     zapaygadz     sparmgeep     crayfleand
+
+Words (4-8 chars):
+vetvourk      bleempai      praink        sefeen        shai
+thetway       spelk         haycru        rouctay       roualf
+hoogai        cled          baiayn        claylt        sciem
+floaspox      shent         layfrus       froop         stey
+
+Phrase:
+sloold-troo-chespoa
 ```
 
 ## License
