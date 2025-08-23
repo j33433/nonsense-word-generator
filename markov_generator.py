@@ -11,22 +11,34 @@ from typing import List, Dict, Optional
 class MarkovWordGenerator:
     """Generate pronounceable nonsense words using Markov chains trained on English words."""
     
-    def __init__(self, order: int = 2, word_file: Optional[str] = None, min_relative_prob: float = 0.1, verbose: bool = False) -> None:
+    def __init__(self, order: int = 2, word_file: Optional[str] = None, cutoff: float = 0.1, verbose: bool = False, language: str = "en") -> None:
         """Initialize the Markov chain generator.
         
         Args:
             order: The order of the Markov chain (number of characters to look back)
             word_file: Path to word list file, downloads if None
-            min_relative_prob: Minimum probability relative to the most likely choice (0.0-1.0)
+            cutoff: Minimum probability relative to the most likely choice (0.0-1.0)
             verbose: Print detailed initialization messages
+            language: Language code for word list (en, es, fr, de, it, pt)
         """
         self.order = order
-        self.min_relative_prob = min_relative_prob
+        self.cutoff = cutoff
         self.verbose = verbose
+        self.language = language
         self.chains: Dict[str, Counter] = defaultdict(Counter)
         self.start_chains: Counter = Counter()
-        self.word_file = word_file or "words.txt"
-        self.cache_file = f"markov_chains_order{order}.pkl"
+        self.word_file = word_file or f"words_{language}.txt"
+        self.cache_file = f"markov_chains_order{order}_{language}.pkl"
+        
+        # Language-specific word list URLs
+        self.language_urls = {
+            "en": "https://raw.githubusercontent.com/dwyl/english-words/master/words_alpha.txt",
+            "es": "https://raw.githubusercontent.com/JorgeDuenasLerin/diccionario-espanol-txt/master/0_palabras_todas.txt",
+            "fr": "https://raw.githubusercontent.com/lorenbrichter/Words/master/Words/fr.txt", 
+            "de": "https://raw.githubusercontent.com/lorenbrichter/Words/master/Words/de.txt",
+            "it": "https://raw.githubusercontent.com/napolux/paroleitaliane/master/paroleitaliane/280000_parole_italiane.txt",
+            "pt": "https://raw.githubusercontent.com/pythonprobr/palavras/master/palavras.txt"
+        }
         
         self._load_words()
         self._load_or_build_chains()
@@ -41,29 +53,17 @@ class MarkovWordGenerator:
         if os.path.exists(self.word_file):
             return
             
-        self._vprint(f"Downloading word list to {self.word_file}...")
-        # Using SCOWL (Spell Checker Oriented Word Lists) - common English words
-        url = "https://raw.githubusercontent.com/dwyl/english-words/master/words_alpha.txt"
+        if self.language not in self.language_urls:
+            raise ValueError(f"Unsupported language: {self.language}. Supported languages: {list(self.language_urls.keys())}")
+            
+        self._vprint(f"Downloading {self.language} word list to {self.word_file}...")
+        url = self.language_urls[self.language]
         
         try:
             urllib.request.urlretrieve(url, self.word_file)
             self._vprint(f"Downloaded {self.word_file}")
         except Exception as e:
-            print(f"Failed to download word list: {e}")
-            # Fallback to a smaller built-in list
-            self._create_fallback_wordlist()
-
-    def _create_fallback_wordlist(self) -> None:
-        """Create a small fallback word list if download fails."""
-        fallback_words = [
-            "the", "and", "for", "are", "but", "not", "you", "all", "can", "had", "her", "was", "one", "our", "out", "day", "get", "has", "him", "his", "how", "man", "new", "now", "old", "see", "two", "way", "who", "boy", "did", "its", "let", "put", "say", "she", "too", "use",
-            "about", "after", "again", "before", "being", "could", "every", "first", "found", "great", "group", "house", "large", "light", "little", "long", "made", "make", "many", "most", "move", "much", "name", "never", "night", "number", "other", "part", "place", "right", "same", "seem", "small", "sound", "still", "such", "take", "than", "that", "their", "there", "these", "they", "thing", "think", "this", "those", "three", "time", "very", "water", "well", "were", "what", "where", "which", "while", "with", "work", "world", "would", "write", "year", "young"
-        ]
-        
-        with open(self.word_file, 'w') as f:
-            for word in fallback_words:
-                f.write(word + '\n')
-        self._vprint(f"Created fallback word list: {self.word_file}")
+            raise RuntimeError(f"Failed to download word list for language '{self.language}': {e}")
 
     def _load_words(self) -> None:
         """Load words from file, downloading if necessary."""
@@ -77,9 +77,12 @@ class MarkovWordGenerator:
                     if word and word.isalpha() and 2 <= len(word) <= 15:
                         self.words.append(word)
             self._vprint(f"Loaded {len(self.words)} words from {self.word_file}")
+            
+            if not self.words:
+                raise RuntimeError(f"No valid words found in {self.word_file}")
+                
         except Exception as e:
-            print(f"Error loading words: {e}")
-            self.words = ["hello", "world", "python", "code"]
+            raise RuntimeError(f"Error loading words from {self.word_file}: {e}")
         
         # Create a set for fast dictionary lookup
         self.word_set = set(self.words)
@@ -183,7 +186,7 @@ class MarkovWordGenerator:
         max_probability = max_weight / total
         
         # Filter out choices that are much less likely than the most probable
-        min_threshold = max_probability * self.min_relative_prob
+        min_threshold = max_probability * self.cutoff
         filtered_items = []
         filtered_weights = []
         
@@ -243,16 +246,23 @@ class MarkovWordGenerator:
             
             # If word is too short or too long, try again (with limit)
             if len(word) < min_len or len(word) > max_len:
-                if attempts < max_attempts // 2:
+                if retry < max_retries - 1:
                     continue  # Try generating a new word
                 else:
-                    # Fallback: truncate or pad
+                    # Fallback: truncate or concatenate
                     if len(word) > max_len:
                         word = word[:max_len]
-                    elif len(word) < min_len and word:
-                        # Try to extend with common endings
+                    elif len(word) < min_len:
+                        # Generate additional short words and concatenate
                         while len(word) < min_len:
-                            word += secrets.choice("aeiou")
+                            extra_word = self.generate(2, 6, max_retries=3)
+                            if len(word) + len(extra_word) <= max_len:
+                                word += extra_word
+                            else:
+                                # Add just enough characters to reach min_len
+                                needed = min_len - len(word)
+                                word += extra_word[:needed]
+                                break
             
             # Check if the generated word is in the dictionary
             if word and word not in self.word_set:

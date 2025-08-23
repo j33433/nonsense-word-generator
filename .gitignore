@@ -210,4 +210,5 @@ __marimo__/
 
 # This project
 *.pkl
-words.txt
+words*.txt
+*~

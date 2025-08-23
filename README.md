@@ -23,8 +23,32 @@ python nonsense_generator.py
 # Generate words using Markov chains (more realistic)
 python nonsense_generator.py --markov
 
+# Generate a single word with default length (8-12 characters)
+python nonsense_generator.py --single
+
+# Generate a single word with specific length range
+python nonsense_generator.py --single=5-8
+
+# Generate a single word with exact length
+python nonsense_generator.py --single=10
+
+# Combine single word generation with Markov chains
+python nonsense_generator.py --single=6-15 --markov --order 3
+
+# Control batch size (default: 20 words per category)
+python nonsense_generator.py --count=10
+python nonsense_generator.py --count=5 --markov
+
 # Adjust Markov chain parameters
-python nonsense_generator.py --markov --order 3 --min-prob 0.05
+python nonsense_generator.py --markov --order 3 --cutoff 0.05
+
+# Generate words based on other languages
+python nonsense_generator.py --markov --language es  # Spanish
+python nonsense_generator.py --markov --language fr  # French
+python nonsense_generator.py --markov --language de  # German
+
+# Verbose output shows initialization details
+python nonsense_generator.py --verbose --markov
 ```
 
 ## Python API Usage
@@ -55,7 +79,7 @@ print(words)
 from markov_generator import MarkovWordGenerator
 
 # Initialize (downloads word list on first run)
-generator = MarkovWordGenerator(order=2, min_relative_prob=0.1)
+generator = MarkovWordGenerator(order=2, cutoff=0.1, language="en")
 
 # Generate words
 word = generator.generate(min_len=6, max_len=12)
@@ -63,9 +87,10 @@ words = generator.generate_batch(10)
 
 # Adjust parameters
 generator = MarkovWordGenerator(
-    order=3,                    # Look back 3 characters
-    min_relative_prob=0.05,     # Include more rare transitions
-    word_file="custom_words.txt"  # Use custom word list
+    order=3,                      # Look back 3 characters
+    cutoff=0.05,                  # Include more rare transitions
+    language="es",                # Use Spanish word list
+    word_file="custom_words.txt"  # Use custom word list (overrides language)
 )
 ```
 
@@ -105,11 +130,24 @@ coenus        subdelet      sprucell      unmercal      evaporan
 
 Phrase:
 vialism-unstally-nonversa
-
-Generated from 359039 training words using order-4 Markov chains
 ```
 
 ## Parameters
+
+### Single Word Generation (`--single`)
+Generate a single word instead of the default batch demo output.
+
+- `--single`: Use default length range of 8-12 characters
+- `--single=MIN-MAX`: Specify length range (e.g., `--single=5-8`)  
+- `--single=N`: Generate word with exact length N (e.g., `--single=10`)
+
+Examples:
+```bash
+python nonsense_generator.py --single                   # 8-12 chars
+python nonsense_generator.py --single=4-6               # 4-6 chars
+python nonsense_generator.py --single=15                # exactly 15 chars
+python nonsense_generator.py --single=10-20 --markov    # 10-20 chars, Markov
+```
 
 ### Markov Chain Parameters
 
@@ -139,33 +177,52 @@ Controls how many previous characters the generator looks at when choosing the n
   - May produce words too similar to dictionary words
   - Least creative but most "realistic"
 
-#### Minimum Relative Probability (`--min-prob`, default: 0.1)
+#### Cutoff (`--cutoff`, default: 0.1)
 Filters out rare character transitions to focus on more common patterns:
 
 - **0.0**: Include all possible transitions (most random)
 - **0.1** (default): Only include transitions that are at least 10% as likely as the most common choice
 - **0.5**: Only include transitions that are at least 50% as likely (more conservative)
-- **1.0**: Only use the single most likely transition (very predictable)
 
 Lower values create more variety but potentially less pronounceable words. Higher values create more predictable, English-like patterns.
 
+#### Language (`--language`, default: "en")
+Specifies which language's word list to download and use for training:
+
+- **en, es, fr, de, it, pt**
+
+Each language creates separate cache files for fast loading after first run.
+
 #### Word File (`word_file` parameter)
-- Path to training word list (downloads automatically if None)
-- Uses ~359K English words by default
+- Path to custom training word list (overrides language parameter)
+- Downloads automatically based on language if None
 - Can specify custom word lists for different languages or domains
 - Cached as pickle files for fast loading after first run
 
 ### Generation Parameters
 - `min_len`: Minimum word length (default: 3)
 - `max_len`: Maximum word length (default: 10)
-- `count`: Number of words to generate in batch (default: 10)
+- `count`: Number of words to generate in batch mode (`--count=N`, default: 20)
 - `verbose`: Show detailed initialization messages (`--verbose` or `-v`)
+- `single`: Generate single word with specified length range instead of batch demo
+
+**Note**: `--order`, `--cutoff`, and `--language` parameters only apply when using `--markov`.
+
+### Batch Mode (`--count`)
+Controls how many words are generated in each category when running the default demo:
+
+```bash
+python nonsense_generator.py --count=10    # Generate 10 words per category
+python nonsense_generator.py --count=5     # Generate 5 words per category  
+python nonsense_generator.py --count=30    # Generate 30 words per category
+```
+
+The demo shows two categories: "Words (6-12 chars)" and "Words (4-8 chars)", plus a 3-word phrase.
 
 ### Performance Notes
 - First run downloads word list and builds chains (slower)
 - Subsequent runs use cached pickle files (much faster)
 - Higher orders create larger cache files but similar generation speed
-- Order 1: ~27 states, Order 2: ~681 states, Order 3: ~9,738 states
 
 ## License
 

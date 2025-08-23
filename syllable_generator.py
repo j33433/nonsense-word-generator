@@ -70,7 +70,37 @@ class SyllableWordGenerator:
         word = "".join(syllables)
         
         if len(word) < min_len or len(word) > max_len:
-            return self.generate(min_len, max_len)
+            # Try concatenation/truncation approach for better results
+            if len(word) > max_len:
+                return word[:max_len]
+            elif len(word) < min_len:
+                # Generate additional short words and concatenate
+                attempts = 0
+                while len(word) < min_len and attempts < 3:
+                    try:
+                        extra_word = self.generate(2, 4)
+                        if len(word) + len(extra_word) <= max_len:
+                            word += extra_word
+                        else:
+                            # Add just enough characters to reach min_len
+                            needed = min_len - len(word)
+                            word += extra_word[:needed]
+                            break
+                    except RecursionError:
+                        # Fallback: add vowels if recursion fails
+                        needed = min(min_len - len(word), max_len - len(word))
+                        word += secrets.choice("aeiou") * needed
+                        break
+                    attempts += 1
+                
+                # If still too short after attempts, pad with vowels
+                if len(word) < min_len:
+                    needed = min(min_len - len(word), max_len - len(word))
+                    word += secrets.choice("aeiou") * needed
+                
+                return word
+            else:
+                return self.generate(min_len, max_len)
         
         return word
 
