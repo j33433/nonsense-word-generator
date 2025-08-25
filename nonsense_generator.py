@@ -19,12 +19,12 @@ def generate_words(args):
                 min_len = max_len = int(args.length)
         except ValueError:
             print(f"Error: Invalid length format '{args.length}'. Use format like '5-8' or '6'")
-            return
+            exit(1)
         
         # Validate length parameters
         if min_len < 1 or max_len < 1 or min_len > max_len:
             print(f"Error: Invalid length range {min_len}-{max_len}. Min must be >= 1 and <= max.")
-            return
+            exit(1)
     else:
         # Set default length ranges based on mode
         if args.single:
@@ -90,6 +90,20 @@ def main():
                        help="number of words to generate in batch mode (default: 50)")
     
     args = parser.parse_args()
+    
+    # Validate that Markov-specific options are only used with --markov
+    if not args.markov:
+        markov_options = []
+        if args.order != 2:  # 2 is the default
+            markov_options.append("--order")
+        if args.cutoff != 0.1:  # 0.1 is the default
+            markov_options.append("--cutoff")
+        if args.words != "en":  # "en" is the default
+            markov_options.append("--words")
+        
+        if markov_options:
+            print(f"Error: {', '.join(markov_options)} can only be used with --markov")
+            exit(1)
     
     generate_words(args)
 
