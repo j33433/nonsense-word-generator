@@ -209,6 +209,5 @@ __marimo__/
 .aider*
 
 # This project
-*.pkl
-words*.txt
+cache/*
 *~

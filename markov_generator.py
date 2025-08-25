@@ -27,8 +27,8 @@ class MarkovWordGenerator:
         self.language = language
         self.chains: Dict[str, Counter] = defaultdict(Counter)
         self.start_chains: Counter = Counter()
-        self.word_file = word_file or f"words_{language}.txt"
-        self.cache_file = f"markov_chains_order{order}_{language}.pkl"
+        self.word_file = word_file or f"cache/words_{language}.txt"
+        self.cache_file = f"cache/markov_chains_order{order}_{language}.pkl"
         
         # Language-specific word list URLs
         self.language_urls = {
@@ -57,6 +57,9 @@ class MarkovWordGenerator:
             
         if self.language not in self.language_urls:
             raise ValueError(f"Unsupported language: {self.language}. Supported languages: {list(self.language_urls.keys())}")
+        
+        # Create cache directory if it doesn't exist
+        os.makedirs("cache", exist_ok=True)
             
         self._vprint(f"Downloading {self.language} word list to {self.word_file}...")
         url = self.language_urls[self.language]
@@ -160,6 +163,9 @@ class MarkovWordGenerator:
     def _save_chains(self) -> None:
         """Save the built chains to a pickle file."""
         try:
+            # Create cache directory if it doesn't exist
+            os.makedirs("cache", exist_ok=True)
+            
             cache_data = {
                 'chains': dict(self.chains),  # Convert defaultdict to regular dict
                 'start_chains': self.start_chains,
