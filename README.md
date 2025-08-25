@@ -1,6 +1,6 @@
 # Nonsense Word Generator
 
-Generates pronounceable nonsense words that sound like English but probably aren't.
+Generates pronounceable nonsense words that sound like real words but probably aren't.
 
 Two generation methods available:
 - **Syllable-based**: Fast generation using phonetic rules (default)
@@ -27,13 +27,19 @@ python nonsense_generator.py --markov
 python nonsense_generator.py --single
 
 # Generate a single word with specific length range
-python nonsense_generator.py --single=5-8
+python nonsense_generator.py --single --length=5-8
 
 # Generate a single word with exact length
-python nonsense_generator.py --single=10
+python nonsense_generator.py --single --length=10
 
 # Combine single word generation with Markov chains
-python nonsense_generator.py --single=6-15 --markov --order 3
+python nonsense_generator.py --single --length=6-15 --markov --order 3
+
+# Generate a token (triplet joined by dashes)
+python nonsense_generator.py --token
+
+# Generate token with specific length
+python nonsense_generator.py --token --length=4-6 --markov
 
 # Control batch size (default: 50 words)
 python nonsense_generator.py --count=100
@@ -154,19 +160,47 @@ mcgard
 
 ## Parameters
 
-### Single Word Generation (`--single`)
-Generate a single word instead of the default batch demo output.
+### Generation Modes
 
-- `--single`: Use default length range of 8-12 characters
-- `--single=MIN-MAX`: Specify length range (e.g., `--single=5-8`)  
-- `--single=N`: Generate word with exact length N (e.g., `--single=10`)
+#### Single Word Generation (`--single`)
+Generate a single word instead of batch output.
+
+```bash
+python nonsense_generator.py --single                   # 8-12 chars (default)
+python nonsense_generator.py --single --length=4-6      # 4-6 chars
+python nonsense_generator.py --single --length=15       # exactly 15 chars
+python nonsense_generator.py --single --length=10-20 --markov  # 10-20 chars, Markov
+```
+
+#### Token Generation (`--token`)
+Generate a triplet of words joined by dashes (useful for passwords, identifiers, etc.).
+
+```bash
+python nonsense_generator.py --token                    # 4-8 chars per word (default)
+python nonsense_generator.py --token --length=3-6       # 3-6 chars per word
+python nonsense_generator.py --token --markov           # Using Markov chains
+```
+
+#### Batch Generation (default)
+Generate multiple words in a grid format.
+
+```bash
+python nonsense_generator.py                           # 50 words, 3-10 chars (default)
+python nonsense_generator.py --count=20                # 20 words
+python nonsense_generator.py --length=5-8 --count=30   # 30 words, 5-8 chars each
+```
+
+### Length Control (`--length`)
+The `--length` parameter applies to all generation modes:
+
+- `--length=MIN-MAX`: Specify length range (e.g., `--length=5-8`)
+- `--length=N`: Generate words with exact length N (e.g., `--length=10`)
 
 Examples:
 ```bash
-python nonsense_generator.py --single                   # 8-12 chars
-python nonsense_generator.py --single=4-6               # 4-6 chars
-python nonsense_generator.py --single=15                # exactly 15 chars
-python nonsense_generator.py --single=10-20 --markov    # 10-20 chars, Markov
+python nonsense_generator.py --single --length=6-12
+python nonsense_generator.py --token --length=4-6
+python nonsense_generator.py --count=25 --length=3-5
 ```
 
 ### Markov Chain Parameters
@@ -232,22 +266,25 @@ Each language/domain creates separate cache files for fast loading after first r
 ### Generation Parameters
 - `min_len`: Minimum word length (default: 3)
 - `max_len`: Maximum word length (default: 10)
-- `count`: Number of words to generate in batch mode (`--count=N`, default: 20)
+- `count`: Number of words to generate in batch mode (`--count=N`, default: 50)
 - `verbose`: Show detailed initialization messages (`--verbose` or `-v`)
 - `single`: Generate single word with specified length range instead of batch demo
 
 **Note**: `--order`, `--cutoff`, and `--words` parameters only apply when using `--markov`.
 
-### Batch Mode (`--count`)
-Controls how many words are generated in batch mode:
+### Validation and Error Handling
+The CLI includes comprehensive validation:
+
+- Length parameters must be positive integers with min ≤ max
+- Markov-specific options (`--order`, `--cutoff`, `--words`) require `--markov`
+- Invalid parameters exit with proper error codes
 
 ```bash
-python nonsense_generator.py --count=10     # Generate 10 words
-python nonsense_generator.py --count=100    # Generate 100 words  
-python nonsense_generator.py --count=25     # Generate 25 words
+# These will fail with helpful error messages:
+python nonsense_generator.py --order=3          # Error: --order requires --markov
+python nonsense_generator.py --length=10-5      # Error: Invalid range
+python nonsense_generator.py --length=invalid   # Error: Invalid format
 ```
-
-Default batch size is 50 words with length range 3-10 characters.
 
 ### Performance Notes
 - First run downloads word list and builds chains (slower)
