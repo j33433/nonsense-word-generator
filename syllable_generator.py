@@ -47,62 +47,46 @@ class SyllableWordGenerator:
     def generate(self, min_len: int = 3, max_len: int = 10) -> str:
         """Generate a single word."""
         if min_len > max_len or min_len < 1:
-            raise ValueError("Invalid length parameters")
-            
-        syllables = []
-        length = 0
-        num_syllables = secrets.randbelow(4) + 1
+            raise ValueError(f"Invalid length parameters: min_len={min_len}, max_len={max_len}")
         
-        for i in range(num_syllables):
-            if i == 0:
-                syl = self._make_syllable("initial")
-            elif i == num_syllables - 1:
-                syl = self._make_syllable("final")
-            else:
-                syl = self._make_syllable("middle")
+        max_attempts = 50  # Prevent infinite recursion
+        for attempt in range(max_attempts):
+            syllables = []
+            length = 0
+            num_syllables = secrets.randbelow(4) + 1
             
-            if length + len(syl) > max_len:
-                break
+            for i in range(num_syllables):
+                if i == 0:
+                    syl = self._make_syllable("initial")
+                elif i == num_syllables - 1:
+                    syl = self._make_syllable("final")
+                else:
+                    syl = self._make_syllable("middle")
                 
-            syllables.append(syl)
-            length += len(syl)
-        
-        word = "".join(syllables)
-        
-        if len(word) < min_len or len(word) > max_len:
-            # Try concatenation/truncation approach for better results
-            if len(word) > max_len:
-                return word[:max_len]
-            elif len(word) < min_len:
-                # Generate additional short words and concatenate
-                attempts = 0
-                while len(word) < min_len and attempts < 3:
-                    try:
-                        extra_word = self.generate(2, 4)
-                        if len(word) + len(extra_word) <= max_len:
-                            word += extra_word
-                        else:
-                            # Add just enough characters to reach min_len
-                            needed = min_len - len(word)
-                            word += extra_word[:needed]
-                            break
-                    except RecursionError:
-                        # Fallback: add vowels if recursion fails
-                        needed = min(min_len - len(word), max_len - len(word))
-                        word += secrets.choice("aeiou") * needed
+                # Check if adding this syllable would exceed max_len
+                if length + len(syl) > max_len:
+                    # If we haven't added any syllables yet, try a shorter one
+                    if not syllables:
+                        continue
+                    else:
                         break
-                    attempts += 1
+                        
+                syllables.append(syl)
+                length += len(syl)
                 
-                # If still too short after attempts, pad with vowels
-                if len(word) < min_len:
-                    needed = min(min_len - len(word), max_len - len(word))
-                    word += secrets.choice("aeiou") * needed
-                
+                # If we've reached a good length, we can stop
+                if length >= min_len:
+                    break
+            
+            word = "".join(syllables)
+            
+            # Check if word meets length requirements
+            if min_len <= len(word) <= max_len:
                 return word
-            else:
-                return self.generate(min_len, max_len)
         
-        return word
+        # If we couldn't generate a word in the range after many attempts,
+        # return the best attempt we have
+        return word if 'word' in locals() else "word"
 
     def generate_batch(self, count: int = 10, 
                       min_len: int = 3, 

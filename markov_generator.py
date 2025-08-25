@@ -37,7 +37,9 @@ class MarkovWordGenerator:
             "fr": "https://raw.githubusercontent.com/lorenbrichter/Words/master/Words/fr.txt", 
             "de": "https://raw.githubusercontent.com/lorenbrichter/Words/master/Words/de.txt",
             "it": "https://raw.githubusercontent.com/napolux/paroleitaliane/master/paroleitaliane/280000_parole_italiane.txt",
-            "pt": "https://raw.githubusercontent.com/pythonprobr/palavras/master/palavras.txt"
+            "pt": "https://raw.githubusercontent.com/pythonprobr/palavras/master/palavras.txt",
+            "names": "https://raw.githubusercontent.com/smashew/NameDatabases/master/NamesDatabases/first%20names/us.txt",
+            "surnames": "https://raw.githubusercontent.com/smashew/NameDatabases/master/NamesDatabases/surnames/us.txt",
         }
         
         self._load_words()
@@ -70,12 +72,29 @@ class MarkovWordGenerator:
         self._download_words()
         
         self.words = []
+        self.word_set = set()
+        
         try:
             with open(self.word_file, 'r', encoding='utf-8') as f:
+                # Process in batches for better memory efficiency
+                batch = []
+                batch_size = 10000
+                
                 for line in f:
                     word = line.strip().lower()
                     if word and word.isalpha() and 2 <= len(word) <= 15:
-                        self.words.append(word)
+                        batch.append(word)
+                        
+                        if len(batch) >= batch_size:
+                            self.words.extend(batch)
+                            self.word_set.update(batch)
+                            batch = []
+                
+                # Process remaining words
+                if batch:
+                    self.words.extend(batch)
+                    self.word_set.update(batch)
+                    
             self._vprint(f"Loaded {len(self.words)} words from {self.word_file}")
             
             if not self.words:
@@ -83,27 +102,34 @@ class MarkovWordGenerator:
                 
         except Exception as e:
             raise RuntimeError(f"Error loading words from {self.word_file}: {e}")
-        
-        # Create a set for fast dictionary lookup
-        self.word_set = set(self.words)
+
+
 
     def _build_chains(self) -> None:
         """Build Markov chains from the word list."""
-        for word in self.words:
-            # Add start marker
-            padded_word = "^" * self.order + word + "$"
+        # Pre-allocate start marker string to avoid repeated concatenation
+        start_marker = "^" * self.order
+        
+        # Process words in batches for better memory locality
+        batch_size = 1000
+        for batch_start in range(0, len(self.words), batch_size):
+            batch_end = min(batch_start + batch_size, len(self.words))
+            batch_words = self.words[batch_start:batch_end]
             
-            # Record starting n-grams
-            start_ngram = padded_word[:self.order]
-            if start_ngram not in self.start_chains:
-                self.start_chains[start_ngram] = 0
-            self.start_chains[start_ngram] += 1
-            
-            # Build transition chains
-            for i in range(len(padded_word) - self.order):
-                ngram = padded_word[i:i + self.order]
-                next_char = padded_word[i + self.order]
-                self.chains[ngram][next_char] += 1
+            for word in batch_words:
+                # Add start and end markers
+                padded_word = start_marker + word + "$"
+                
+                # Record starting n-grams
+                start_ngram = padded_word[:self.order]
+                self.start_chains[start_ngram] += 1
+                
+                # Build transition chains - optimized loop
+                padded_len = len(padded_word)
+                for i in range(padded_len - self.order):
+                    ngram = padded_word[i:i + self.order]
+                    next_char = padded_word[i + self.order]
+                    self.chains[ngram][next_char] += 1
         
         self._vprint(f"Built Markov chains with {len(self.chains)} states")
         self._save_chains()
@@ -201,7 +227,17 @@ class MarkovWordGenerator:
             filtered_items = list(counter.keys())
             filtered_weights = list(counter.values())
         
-        # Simple weighted selection
+        # Fast path for small choices
+        if len(filtered_items) == 1:
+            return filtered_items[0]
+        elif len(filtered_items) == 2:
+            # Simple binary choice
+            if secrets.randbelow(filtered_weights[0] + filtered_weights[1]) < filtered_weights[0]:
+                return filtered_items[0]
+            else:
+                return filtered_items[1]
+        
+        # Standard weighted choice for larger sets
         filtered_total = sum(filtered_weights)
         r = secrets.randbelow(filtered_total)
         
@@ -210,13 +246,14 @@ class MarkovWordGenerator:
             if r < 0:
                 return item
         
-        # Final fallback
-        return secrets.choice(filtered_items)
+        return filtered_items[0]
 
-    def generate(self, min_len: int = 3, max_len: int = 10, max_retries: int = 10) -> str:
+    def generate(self, min_len: int = 3, max_len: int = 10, max_retries: int = 50) -> str:
         """Generate a single word using the Markov chain."""
         if min_len > max_len or min_len < 1:
-            raise ValueError("Invalid length parameters")
+            raise ValueError(f"Invalid length parameters: min_len={min_len}, max_len={max_len}")
+        
+        best_word = ""
         
         for retry in range(max_retries):
             # Start with a random starting n-gram
@@ -235,41 +272,34 @@ class MarkovWordGenerator:
                 next_char = self._weighted_choice(self.chains[current])
                 
                 if next_char == "$":  # End marker
-                    break
+                    # Accept end if word is in valid range
+                    if min_len <= len(word) <= max_len:
+                        break
+                    # If word is too short and we're close to max attempts, accept it anyway
+                    elif len(word) >= min_len // 2 and attempts > max_attempts // 2:
+                        break
+                    # Otherwise ignore the end marker and continue
                 elif next_char != "^":  # Skip start markers
                     word += next_char
+                    # Stop if we've reached max length
                     if len(word) >= max_len:
+                        break
+                    # For very short target lengths, be more aggressive about stopping
+                    if min_len <= 4 and len(word) >= min_len and secrets.randbelow(3) == 0:
                         break
                 
                 # Update current state
                 current = current[1:] + next_char
             
-            # If word is too short or too long, try again (with limit)
-            if len(word) < min_len or len(word) > max_len:
-                if retry < max_retries - 1:
-                    continue  # Try generating a new word
-                else:
-                    # Fallback: truncate or concatenate
-                    if len(word) > max_len:
-                        word = word[:max_len]
-                    elif len(word) < min_len:
-                        # Generate additional short words and concatenate
-                        while len(word) < min_len:
-                            extra_word = self.generate(2, 6, max_retries=3)
-                            if len(word) + len(extra_word) <= max_len:
-                                word += extra_word
-                            else:
-                                # Add just enough characters to reach min_len
-                                needed = min_len - len(word)
-                                word += extra_word[:needed]
-                                break
-            
-            # Check if the generated word is in the dictionary
+            # Keep track of the best word we've seen
             if word and word not in self.word_set:
-                return word
+                if min_len <= len(word) <= max_len:
+                    return word
+                elif not best_word or abs(len(word) - (min_len + max_len) // 2) < abs(len(best_word) - (min_len + max_len) // 2):
+                    best_word = word
         
-        # If we couldn't generate a non-dictionary word after max_retries, return anyway
-        return word if word else "word"
+        # Return the best word we found, even if it doesn't meet exact requirements
+        return best_word if best_word else "word"
 
     def generate_batch(self, count: int = 10, 
                       min_len: int = 3, 

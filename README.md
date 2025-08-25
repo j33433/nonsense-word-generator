@@ -17,10 +17,10 @@ python nonsense_generator.py
 ## Command Line Usage
 
 ```bash
-# Generate words using syllable-based method (default)
+# Generate batch of words using syllable-based method (default: 50 words)
 python nonsense_generator.py
 
-# Generate words using Markov chains (more realistic)
+# Generate batch using Markov chains (more realistic)
 python nonsense_generator.py --markov
 
 # Generate a single word with default length (8-12 characters)
@@ -35,17 +35,19 @@ python nonsense_generator.py --single=10
 # Combine single word generation with Markov chains
 python nonsense_generator.py --single=6-15 --markov --order 3
 
-# Control batch size (default: 20 words per category)
-python nonsense_generator.py --count=10
-python nonsense_generator.py --count=5 --markov
+# Control batch size (default: 50 words)
+python nonsense_generator.py --count=100
+python nonsense_generator.py --count=25 --markov
 
 # Adjust Markov chain parameters
 python nonsense_generator.py --markov --order 3 --cutoff 0.05
 
-# Generate words based on other languages
-python nonsense_generator.py --markov --language es  # Spanish
-python nonsense_generator.py --markov --language fr  # French
-python nonsense_generator.py --markov --language de  # German
+# Generate words based on other languages or domains
+python nonsense_generator.py --markov --words es          # Spanish
+python nonsense_generator.py --markov --words fr          # French
+python nonsense_generator.py --markov --words de          # German
+python nonsense_generator.py --markov --words names       # US first names
+python nonsense_generator.py --markov --words surnames    # US last names
 
 # Verbose output shows initialization details
 python nonsense_generator.py --verbose --markov
@@ -96,41 +98,59 @@ generator = MarkovWordGenerator(
 
 ## Example Output
 
-### Syllable-based
+### Syllable-based (batch mode)
+```bash
+python nonsense_generator.py --count=10
 ```
-Words (6-12 chars):
-shiledoolp    bresofreelp   staychenk     tweetwayg     dravoaft    
-chaieheamp    jailfnoord    teesciflie    lurieeyoast   lepras      
-flouglart     spousk        treybliielf   zeysmept      breendheart 
-sheacttrilf   heyshuscoux   neehaiayeyrn  vaiuzeeb      tousnont    
-
-Words (4-8 chars):
-flayskee      feclex        reejoult      gleapcom      smeepot     
-juskund       jourk         mook          healk         vibreyd     
-scang         sealdtre      blong         braip         dulost      
-lealf         boopoct       cliespe       chaye         geypugle    
-
-Phrase:
-waft-croufrie-crerdack
+```
+shiledoolp
+bresofreelp
+staychenk
+tweetwayg
+dravoaft
+chaieheamp
+jailfnoord
+teesciflie
+lurieeyoast
+lepras
 ```
 
-### Markov chains (Order 4)
+### Markov chains (batch mode)
+```bash
+python nonsense_generator.py --markov --count=10
 ```
-Words (6-12 chars):
-mantitricial  signomy       unlustrepine  tabernal      demonotum   
-megalise      isosteres     unseerhood    laureleasure  unconfect   
-gyrodically   refrankness   aspatter      insonaniming  untuneducerl
-buchable      unally        orthodontall  reimburity    unmouthoric 
-
-Words (4-8 chars):
-ascency       pandolin      menormal      tankroll      sepalook    
-nondefin      splendra      phaenous      lening        carpitch    
-glissal       langorat      lynchio       overtedn      serpetum    
-coenus        subdelet      sprucell      unmercal      evaporan    
-
-Phrase:
-vialism-unstally-nonversa
 ```
+mantitricial
+signomy
+unlustrepine
+tabernal
+demonotum
+megalise
+isosteres
+unseerhood
+laureleasure
+unconfect
+```
+
+### Single word generation
+```bash
+# Syllable-based single word
+python nonsense_generator.py --single
+blairthook
+
+# Markov chain single word
+python nonsense_generator.py --single --markov
+refrankness
+
+# Names
+python nonsense_generator.py --markov --words names --single=4-8
+lendrida
+
+# Surnames  
+python nonsense_generator.py --markov --words surnames --single=5-10
+mcgard
+```
+
 
 ## Parameters
 
@@ -186,12 +206,22 @@ Filters out rare character transitions to focus on more common patterns:
 
 Lower values create more variety but potentially less pronounceable words. Higher values create more predictable, English-like patterns.
 
-#### Language (`--language`, default: "en")
-Specifies which language's word list to download and use for training:
+#### Word List Type (`--words`, default: "en")
+Specifies which word list to download and use for training:
 
-- **en, es, fr, de, it, pt**
+**Languages:**
+- **en**: English dictionary words
+- **es**: Spanish words  
+- **fr**: French words
+- **de**: German words
+- **it**: Italian words
+- **pt**: Portuguese words
 
-Each language creates separate cache files for fast loading after first run.
+**Specialized Domains:**
+- **names**: US first names (generates name-like nonsense)
+- **surnames**: US last names/surnames (generates surname-like nonsense)
+
+Each language/domain creates separate cache files for fast loading after first run.
 
 #### Word File (`word_file` parameter)
 - Path to custom training word list (overrides language parameter)
@@ -206,18 +236,18 @@ Each language creates separate cache files for fast loading after first run.
 - `verbose`: Show detailed initialization messages (`--verbose` or `-v`)
 - `single`: Generate single word with specified length range instead of batch demo
 
-**Note**: `--order`, `--cutoff`, and `--language` parameters only apply when using `--markov`.
+**Note**: `--order`, `--cutoff`, and `--words` parameters only apply when using `--markov`.
 
 ### Batch Mode (`--count`)
-Controls how many words are generated in each category when running the default demo:
+Controls how many words are generated in batch mode:
 
 ```bash
-python nonsense_generator.py --count=10    # Generate 10 words per category
-python nonsense_generator.py --count=5     # Generate 5 words per category  
-python nonsense_generator.py --count=30    # Generate 30 words per category
+python nonsense_generator.py --count=10     # Generate 10 words
+python nonsense_generator.py --count=100    # Generate 100 words  
+python nonsense_generator.py --count=25     # Generate 25 words
 ```
 
-The demo shows two categories: "Words (6-12 chars)" and "Words (4-8 chars)", plus a 3-word phrase.
+Default batch size is 50 words with length range 3-10 characters.
 
 ### Performance Notes
 - First run downloads word list and builds chains (slower)
