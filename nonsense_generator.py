@@ -7,7 +7,11 @@ from markov_generator import MarkovWordGenerator
 
 
 def generate_words(args):
-    """Generate words based on arguments."""
+    """Generate words based on command line arguments.
+    
+    Args:
+        args: Parsed command line arguments from argparse
+    """
     # Parse the length range
     if args.length:
         try:

@@ -18,12 +18,12 @@ class MarkovWordGenerator:
             word_file: Path to word list file, downloads if None
             cutoff: Minimum probability relative to the most likely choice (0.0-1.0)
             verbose: Print detailed initialization messages
-            words: Word list type (en, es, fr, de, it, pt, names, surnames, profanity)
+            words: Word list type (en, es, fr, de, it, pt, names, surnames)
         """
         self.order = order
         self.cutoff = cutoff
         self.verbose = verbose
-        self.words = words
+        self.word_list_type = words
         self.chains = defaultdict(Counter)
         self.start_chains = Counter()
         self.word_file = word_file or f"cache/words_{words}.txt"
@@ -45,35 +45,55 @@ class MarkovWordGenerator:
         self._load_or_build_chains()
 
     def _vprint(self, *args, **kwargs):
-        """Print only if verbose mode is enabled."""
+        """Print only if verbose mode is enabled.
+        
+        Args:
+            *args: Arguments to pass to print()
+            **kwargs: Keyword arguments to pass to print()
+        """
         if self.verbose:
             print(*args, **kwargs)
 
     def _download_words(self):
-        """Download a word list if it doesn't exist."""
+        """Download a word list if it doesn't exist.
+        
+        Downloads the word list for the specified language/type from the internet
+        and saves it to the cache directory. Creates the cache directory if needed.
+        
+        Raises:
+            ValueError: If the word list type is not supported
+            RuntimeError: If the download fails
+        """
         if os.path.exists(self.word_file):
             return
             
-        if self.words not in self.word_urls:
-            raise ValueError(f"Unsupported word list: {self.words}. Supported types: {list(self.word_urls.keys())}")
+        if self.word_list_type not in self.word_urls:
+            raise ValueError(f"Unsupported word list: {self.word_list_type}. Supported types: {list(self.word_urls.keys())}")
         
         # Create cache directory if it doesn't exist
         os.makedirs("cache", exist_ok=True)
             
-        self._vprint(f"Downloading {self.words} word list to {self.word_file}...")
-        url = self.word_urls[self.words]
+        self._vprint(f"Downloading {self.word_list_type} word list to {self.word_file}...")
+        url = self.word_urls[self.word_list_type]
         
         try:
             urllib.request.urlretrieve(url, self.word_file)
             self._vprint(f"Downloaded {self.word_file}")
         except Exception as e:
-            raise RuntimeError(f"Failed to download word list for '{self.words}': {e}")
+            raise RuntimeError(f"Failed to download word list for '{self.word_list_type}': {e}")
 
     def _load_words(self):
-        """Load words from file, downloading if necessary."""
+        """Load words from file, downloading if necessary.
+        
+        Loads words from the word list file, filtering for alphabetic words
+        between 2-15 characters. Downloads the word list if it doesn't exist.
+        
+        Raises:
+            RuntimeError: If the word file cannot be loaded or contains no valid words
+        """
         self._download_words()
         
-        self.words = []
+        self.word_list = []
         self.word_set = set()
         
         try:
@@ -88,33 +108,38 @@ class MarkovWordGenerator:
                         batch.append(word)
                         
                         if len(batch) >= batch_size:
-                            self.words.extend(batch)
+                            self.word_list.extend(batch)
                             self.word_set.update(batch)
                             batch = []
                 
                 # Process remaining words
                 if batch:
-                    self.words.extend(batch)
+                    self.word_list.extend(batch)
                     self.word_set.update(batch)
                     
-            self._vprint(f"Loaded {len(self.words)} words from {self.word_file}")
+            self._vprint(f"Loaded {len(self.word_list)} words from {self.word_file}")
             
-            if not self.words:
+            if not self.word_list:
                 raise RuntimeError(f"No valid words found in {self.word_file}")
                 
         except Exception as e:
             raise RuntimeError(f"Error loading words from {self.word_file}: {e}")
 
     def _build_chains(self):
-        """Build Markov chains from the word list."""
+        """Build Markov chains from the word list.
+        
+        Creates transition probability chains by analyzing character sequences
+        in the loaded words. Adds start (^) and end ($) markers to track
+        word boundaries. Saves the built chains to cache for future use.
+        """
         # Pre-allocate start marker string to avoid repeated concatenation
         start_marker = "^" * self.order
         
         # Process words in batches for better memory locality
         batch_size = 1000
-        for batch_start in range(0, len(self.words), batch_size):
-            batch_end = min(batch_start + batch_size, len(self.words))
-            batch_words = self.words[batch_start:batch_end]
+        for batch_start in range(0, len(self.word_list), batch_size):
+            batch_end = min(batch_start + batch_size, len(self.word_list))
+            batch_words = self.word_list[batch_start:batch_end]
             
             for word in batch_words:
                 # Add start and end markers
@@ -135,7 +160,11 @@ class MarkovWordGenerator:
         self._save_chains()
 
     def _load_or_build_chains(self):
-        """Load chains from cache or build them if cache doesn't exist or is outdated."""
+        """Load chains from cache or build them if cache doesn't exist or is outdated.
+        
+        Checks if cached chains exist and are newer than the word file.
+        If not, rebuilds the chains from scratch.
+        """
         if self._should_rebuild_cache():
             self._vprint("Building Markov chains...")
             self._build_chains()
@@ -144,7 +173,11 @@ class MarkovWordGenerator:
             self._load_chains()
 
     def _should_rebuild_cache(self):
-        """Check if we need to rebuild the cache."""
+        """Check if we need to rebuild the cache.
+        
+        Returns:
+            bool: True if cache doesn't exist or is older than word file
+        """
         if not os.path.exists(self.cache_file):
             return True
         
@@ -158,7 +191,11 @@ class MarkovWordGenerator:
         return False
 
     def _save_chains(self):
-        """Save the built chains to a pickle file."""
+        """Save the built chains to a pickle file.
+        
+        Serializes the Markov chains, start chains, and metadata to a pickle
+        file for faster loading in future runs.
+        """
         try:
             # Create cache directory if it doesn't exist
             os.makedirs("cache", exist_ok=True)
@@ -168,7 +205,7 @@ class MarkovWordGenerator:
                 'start_chains': self.start_chains,
                 'word_set': self.word_set,
                 'order': self.order,
-                'word_count': len(self.words)
+                'word_count': len(self.word_list)
             }
             with open(self.cache_file, 'wb') as f:
                 pickle.dump(cache_data, f)
@@ -177,7 +214,11 @@ class MarkovWordGenerator:
             print(f"Warning: Could not save cache: {e}")
 
     def _load_chains(self):
-        """Load chains from pickle file."""
+        """Load chains from pickle file.
+        
+        Deserializes previously saved Markov chains from cache.
+        If loading fails or cache is incompatible, rebuilds chains.
+        """
         try:
             with open(self.cache_file, 'rb') as f:
                 cache_data = pickle.load(f)
@@ -205,7 +246,17 @@ class MarkovWordGenerator:
             self._build_chains()
 
     def _weighted_choice(self, counter):
-        """Choose randomly from a Counter, filtering by relative probability to the most likely choice."""
+        """Choose randomly from a Counter, filtering by relative probability.
+        
+        Filters out choices that are much less likely than the most probable
+        choice based on the cutoff threshold, then makes a weighted random selection.
+        
+        Args:
+            counter: Counter object with items and their frequencies
+            
+        Returns:
+            str: Randomly selected item, or empty string if counter is empty
+        """
         if not counter:
             return ""
         
@@ -252,7 +303,19 @@ class MarkovWordGenerator:
         return filtered_items[0]
 
     def generate(self, min_len=3, max_len=10, max_retries=50):
-        """Generate a single word using the Markov chain."""
+        """Generate a single word using the Markov chain.
+        
+        Args:
+            min_len: Minimum word length
+            max_len: Maximum word length  
+            max_retries: Maximum attempts to generate a valid word
+            
+        Returns:
+            str: Generated word that doesn't exist in the training data
+            
+        Raises:
+            ValueError: If min_len > max_len or min_len < 1
+        """
         if min_len > max_len or min_len < 1:
             raise ValueError(f"Invalid length parameters: min_len={min_len}, max_len={max_len}")
         
@@ -307,5 +370,14 @@ class MarkovWordGenerator:
     def generate_batch(self, count=10, 
                       min_len=3, 
                       max_len=10):
-        """Generate multiple words."""
+        """Generate multiple words.
+        
+        Args:
+            count: Number of words to generate
+            min_len: Minimum word length
+            max_len: Maximum word length
+            
+        Returns:
+            list: List of generated words
+        """
         return [self.generate(min_len, max_len) for _ in range(count)]

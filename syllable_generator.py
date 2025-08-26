@@ -30,7 +30,15 @@ class SyllableWordGenerator:
         ]
 
     def _make_syllable(self, position="middle"):
-        """Create a syllable."""
+        """Create a syllable with onset, nucleus, and optional coda.
+        
+        Args:
+            position: Syllable position in word ("initial", "middle", or "final")
+                     Affects probability of including onset/coda components
+                     
+        Returns:
+            str: Generated syllable
+        """
         onset = ""
         nucleus = secrets.choice(self.nuclei)
         coda = ""
@@ -44,7 +52,18 @@ class SyllableWordGenerator:
         return onset + nucleus + coda
 
     def generate(self, min_len=3, max_len=10):
-        """Generate a single word."""
+        """Generate a single pronounceable word using syllable components.
+        
+        Args:
+            min_len: Minimum word length
+            max_len: Maximum word length
+            
+        Returns:
+            str: Generated word within the specified length range
+            
+        Raises:
+            ValueError: If min_len > max_len or min_len < 1
+        """
         if min_len > max_len or min_len < 1:
             raise ValueError(f"Invalid length parameters: min_len={min_len}, max_len={max_len}")
         
@@ -64,11 +83,11 @@ class SyllableWordGenerator:
                 
                 # Check if adding this syllable would exceed max_len
                 if length + len(syl) > max_len:
-                    # If we haven't added any syllables yet, try a shorter one
+                    # If we haven't added any syllables yet, try the next attempt
                     if not syllables:
-                        continue
+                        break  # Break out of syllable loop to try next attempt
                     else:
-                        break
+                        break  # Break out of syllable loop with current syllables
                         
                 syllables.append(syl)
                 length += len(syl)
@@ -90,5 +109,14 @@ class SyllableWordGenerator:
     def generate_batch(self, count=10, 
                       min_len=3, 
                       max_len=10):
-        """Generate multiple words."""
+        """Generate multiple pronounceable words.
+        
+        Args:
+            count: Number of words to generate
+            min_len: Minimum word length
+            max_len: Maximum word length
+            
+        Returns:
+            list: List of generated words
+        """
         return [self.generate(min_len, max_len) for _ in range(count)]

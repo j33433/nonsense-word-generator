@@ -66,10 +66,10 @@ def test_token_mode():
     print("\nTesting --token mode...")
     
     tests = [
-        ("python nonsense_generator.py --token", 4, 8),
+        ("python nonsense_generator.py --token", 5, 8),
         ("python nonsense_generator.py --token --length=3-6", 3, 6),
         ("python nonsense_generator.py --token --length=8", 8, 8),
-        ("python nonsense_generator.py --token --markov", 4, 8),
+        ("python nonsense_generator.py --token --markov", 5, 8),
         ("python nonsense_generator.py --token --markov --length=2-5", 2, 5),
         ("python nonsense_generator.py --token --markov --order=3 --length=6-10", 6, 10),
     ]
