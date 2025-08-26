@@ -41,6 +41,12 @@ python nonsense_generator.py --token
 # Generate token with specific length
 python nonsense_generator.py --token --length=4-6 --markov
 
+# Generate a first and last name (properly capitalized)
+python nonsense_generator.py --name
+
+# Generate names with specific length range
+python nonsense_generator.py --name --length=5-8 --markov
+
 # Control batch size (default: 50 words)
 python nonsense_generator.py --count=100
 python nonsense_generator.py --count=25 --markov
@@ -87,7 +93,7 @@ print(words)
 from markov_generator import MarkovWordGenerator
 
 # Initialize (downloads word list on first run)
-generator = MarkovWordGenerator(order=2, cutoff=0.1, language="en")
+generator = MarkovWordGenerator(order=2, cutoff=0.1, words="en")
 
 # Generate words
 word = generator.generate(min_len=6, max_len=12)
@@ -97,8 +103,8 @@ words = generator.generate_batch(10)
 generator = MarkovWordGenerator(
     order=3,                      # Look back 3 characters
     cutoff=0.05,                  # Include more rare transitions
-    language="es",                # Use Spanish word list
-    word_file="custom_words.txt"  # Use custom word list (overrides language)
+    words="es",                   # Use Spanish word list
+    word_file="custom_words.txt"  # Use custom word list (overrides words)
 )
 ```
 
@@ -181,6 +187,16 @@ python nonsense_generator.py --token --length=3-6       # 3-6 chars per word
 python nonsense_generator.py --token --markov           # Using Markov chains
 ```
 
+#### Name Generation (`--name`)
+Generate a properly capitalized first and last name. Always uses Markov chains trained on US first names and surnames.
+
+```bash
+python nonsense_generator.py --name                     # 4-10 chars per name (default)
+python nonsense_generator.py --name --length=5-8        # 5-8 chars per name
+python nonsense_generator.py --name --order=3           # Use 3rd-order Markov chains
+python nonsense_generator.py --name --cutoff=0.05       # Include more rare patterns
+```
+
 #### Batch Generation (default)
 Generate multiple words in a grid format.
 
@@ -200,6 +216,7 @@ Examples:
 ```bash
 python nonsense_generator.py --single --length=6-12
 python nonsense_generator.py --token --length=4-6
+python nonsense_generator.py --name --length=5-8        # Always uses Markov chains
 python nonsense_generator.py --count=25 --length=3-5
 ```
 
@@ -254,37 +271,6 @@ Specifies which word list to download and use for training:
 **Specialized Domains:**
 - **names**: US first names (generates name-like nonsense)
 - **surnames**: US last names/surnames (generates surname-like nonsense)
-
-Each language/domain creates separate cache files for fast loading after first run.
-
-#### Word File (`word_file` parameter)
-- Path to custom training word list (overrides language parameter)
-- Downloads automatically based on language if None
-- Can specify custom word lists for different languages or domains
-- Cached as pickle files for fast loading after first run
-
-### Generation Parameters
-- `min_len`: Minimum word length (default: 3)
-- `max_len`: Maximum word length (default: 10)
-- `count`: Number of words to generate in batch mode (`--count=N`, default: 50)
-- `verbose`: Show detailed initialization messages (`--verbose` or `-v`)
-- `single`: Generate single word with specified length range instead of batch demo
-
-**Note**: `--order`, `--cutoff`, and `--words` parameters only apply when using `--markov`.
-
-### Validation and Error Handling
-The CLI includes comprehensive validation:
-
-- Length parameters must be positive integers with min ≤ max
-- Markov-specific options (`--order`, `--cutoff`, `--words`) require `--markov`
-- Invalid parameters exit with proper error codes
-
-```bash
-# These will fail with helpful error messages:
-python nonsense_generator.py --order=3          # Error: --order requires --markov
-python nonsense_generator.py --length=10-5      # Error: Invalid range
-python nonsense_generator.py --length=invalid   # Error: Invalid format
-```
 
 ### Performance Notes
 - First run downloads word list and builds chains (slower)

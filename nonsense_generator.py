@@ -3,7 +3,7 @@
 
 import argparse
 from syllable_generator import SyllableWordGenerator
-from markov_generator import MarkovWordGenerator, NonsenseWordGenerator
+from markov_generator import MarkovWordGenerator
 
 
 def generate_words(args):
@@ -30,16 +30,25 @@ def generate_words(args):
         if args.single:
             min_len, max_len = 8, 12
         elif args.token:
-            min_len, max_len = 4, 8
+            min_len, max_len = 5, 8
+        elif args.name:
+            min_len, max_len = 6, 20
         else:
             # Default for batch mode
-            min_len, max_len = 3, 10
+            min_len, max_len = 5, 12
     
     # Initialize generator
-    if args.markov:
+    if args.markov or args.name:
         if args.verbose:
             print("Initializing Markov chain generator...")
-        gen = MarkovWordGenerator(order=args.order, cutoff=args.cutoff, verbose=args.verbose, language=args.words)
+        # For --name mode, use specific word lists
+        if args.name:
+            # We'll need two generators: one for first names, one for surnames
+            first_gen = MarkovWordGenerator(order=args.order, cutoff=args.cutoff, verbose=args.verbose, words="names")
+            last_gen = MarkovWordGenerator(order=args.order, cutoff=args.cutoff, verbose=args.verbose, words="surnames")
+            gen = (first_gen, last_gen)  # Store as tuple for name generation
+        else:
+            gen = MarkovWordGenerator(order=args.order, cutoff=args.cutoff, verbose=args.verbose, words=args.words)
     else:
         if args.verbose:
             print("Initializing syllable-based generator...")
@@ -55,13 +64,21 @@ def generate_words(args):
         words = gen.generate_batch(3, min_len, max_len)
         token = "-".join(words)
         print(token)
+    elif args.name:
+        # Generate and print a first and last name using separate generators
+        first_gen, last_gen = gen
+        first_name = first_gen.generate(min_len, max_len).capitalize()
+        last_name = last_gen.generate(min_len, max_len).capitalize()
+        print(f"{first_name} {last_name}")
     else:
         # Generate batch of words
         words = gen.generate_batch(args.count, min_len, max_len)
-        # Print in grid format, 5 words per row
+        # Print in grid format, 5 words per row with dynamic alignment
+        # Calculate the maximum width needed for the entire grid, with minimum of 12
+        max_width = max(max(len(word) for word in words), 12)
         for i in range(0, len(words), 5):
             row = words[i:i+5]
-            print("  ".join(f"{word:<12}" for word in row))
+            print("  ".join(f"{word:<{max_width}}" for word in row))
 
 
 def main():
@@ -82,6 +99,8 @@ def main():
                        help="generate a single word")
     parser.add_argument("--token", action="store_true",
                        help="generate a token (triplet of words joined by dashes)")
+    parser.add_argument("--name", action="store_true",
+                       help="generate a first and last name (e.g., 'Sharrol Kritzen')")
     parser.add_argument("--batch", action="store_true",
                        help="generate batch of words (default mode)")
     parser.add_argument("--length", type=str, metavar="MIN-MAX",
@@ -91,8 +110,8 @@ def main():
     
     args = parser.parse_args()
     
-    # Validate that Markov-specific options are only used with --markov
-    if not args.markov:
+    # Validate that Markov-specific options are only used with --markov or --name
+    if not args.markov and not args.name:
         markov_options = []
         if args.order != 2:  # 2 is the default
             markov_options.append("--order")
@@ -102,8 +121,13 @@ def main():
             markov_options.append("--words")
         
         if markov_options:
-            print(f"Error: {', '.join(markov_options)} can only be used with --markov")
+            print(f"Error: {', '.join(markov_options)} can only be used with --markov or --name")
             exit(1)
+    
+    # Validate that --words is not used with --name (since --name uses fixed word lists)
+    if args.name and args.words != "en":
+        print("Error: --words cannot be used with --name (names use fixed 'names' and 'surnames' word lists)")
+        exit(1)
     
     generate_words(args)
 

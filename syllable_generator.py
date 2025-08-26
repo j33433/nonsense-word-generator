@@ -1,13 +1,12 @@
 """Syllable-based nonsense word generator."""
 
 import secrets
-from typing import List
 
 
 class SyllableWordGenerator:
     """Generate pronounceable nonsense words using predefined syllable components."""
     
-    def __init__(self) -> None:
+    def __init__(self):
         """Initialize word components."""
         self.onsets = [
             "b", "c", "d", "f", "g", "h", "j", "k", "l", "m", "n",
@@ -30,7 +29,7 @@ class SyllableWordGenerator:
             "ai", "ay", "ea", "ee", "ey", "ie", "oa", "oo", "ou"
         ]
 
-    def _make_syllable(self, position: str = "middle") -> str:
+    def _make_syllable(self, position="middle"):
         """Create a syllable."""
         onset = ""
         nucleus = secrets.choice(self.nuclei)
@@ -44,7 +43,7 @@ class SyllableWordGenerator:
         
         return onset + nucleus + coda
 
-    def generate(self, min_len: int = 3, max_len: int = 10) -> str:
+    def generate(self, min_len=3, max_len=10):
         """Generate a single word."""
         if min_len > max_len or min_len < 1:
             raise ValueError(f"Invalid length parameters: min_len={min_len}, max_len={max_len}")
@@ -88,8 +87,8 @@ class SyllableWordGenerator:
         # return the best attempt we have
         return word if 'word' in locals() else "word"
 
-    def generate_batch(self, count: int = 10, 
-                      min_len: int = 3, 
-                      max_len: int = 10) -> List[str]:
+    def generate_batch(self, count=10, 
+                      min_len=3, 
+                      max_len=10):
         """Generate multiple words."""
         return [self.generate(min_len, max_len) for _ in range(count)]

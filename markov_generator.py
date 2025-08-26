@@ -5,13 +5,12 @@ import urllib.request
 import os
 import pickle
 from collections import defaultdict, Counter
-from typing import List, Dict, Optional
 
 
 class MarkovWordGenerator:
     """Generate pronounceable nonsense words using Markov chains trained on English words."""
     
-    def __init__(self, order: int = 2, word_file: Optional[str] = None, cutoff: float = 0.1, verbose: bool = False, language: str = "en") -> None:
+    def __init__(self, order=2, word_file=None, cutoff=0.1, verbose=False, words="en"):
         """Initialize the Markov chain generator.
         
         Args:
@@ -19,19 +18,19 @@ class MarkovWordGenerator:
             word_file: Path to word list file, downloads if None
             cutoff: Minimum probability relative to the most likely choice (0.0-1.0)
             verbose: Print detailed initialization messages
-            language: Language code for word list (en, es, fr, de, it, pt)
+            words: Word list type (en, es, fr, de, it, pt, names, surnames, profanity)
         """
         self.order = order
         self.cutoff = cutoff
         self.verbose = verbose
-        self.language = language
-        self.chains: Dict[str, Counter] = defaultdict(Counter)
-        self.start_chains: Counter = Counter()
-        self.word_file = word_file or f"cache/words_{language}.txt"
-        self.cache_file = f"cache/markov_chains_order{order}_{language}.pkl"
+        self.words = words
+        self.chains = defaultdict(Counter)
+        self.start_chains = Counter()
+        self.word_file = word_file or f"cache/words_{words}.txt"
+        self.cache_file = f"cache/markov_chains_order{order}_{words}.pkl"
         
-        # Language-specific word list URLs
-        self.language_urls = {
+        # Word list URLs
+        self.word_urls = {
             "en": "https://raw.githubusercontent.com/dwyl/english-words/master/words_alpha.txt",
             "es": "https://raw.githubusercontent.com/JorgeDuenasLerin/diccionario-espanol-txt/master/0_palabras_todas.txt",
             "fr": "https://raw.githubusercontent.com/lorenbrichter/Words/master/Words/fr.txt", 
@@ -45,32 +44,32 @@ class MarkovWordGenerator:
         self._load_words()
         self._load_or_build_chains()
 
-    def _vprint(self, *args, **kwargs) -> None:
+    def _vprint(self, *args, **kwargs):
         """Print only if verbose mode is enabled."""
         if self.verbose:
             print(*args, **kwargs)
 
-    def _download_words(self) -> None:
+    def _download_words(self):
         """Download a word list if it doesn't exist."""
         if os.path.exists(self.word_file):
             return
             
-        if self.language not in self.language_urls:
-            raise ValueError(f"Unsupported language: {self.language}. Supported languages: {list(self.language_urls.keys())}")
+        if self.words not in self.word_urls:
+            raise ValueError(f"Unsupported word list: {self.words}. Supported types: {list(self.word_urls.keys())}")
         
         # Create cache directory if it doesn't exist
         os.makedirs("cache", exist_ok=True)
             
-        self._vprint(f"Downloading {self.language} word list to {self.word_file}...")
-        url = self.language_urls[self.language]
+        self._vprint(f"Downloading {self.words} word list to {self.word_file}...")
+        url = self.word_urls[self.words]
         
         try:
             urllib.request.urlretrieve(url, self.word_file)
             self._vprint(f"Downloaded {self.word_file}")
         except Exception as e:
-            raise RuntimeError(f"Failed to download word list for language '{self.language}': {e}")
+            raise RuntimeError(f"Failed to download word list for '{self.words}': {e}")
 
-    def _load_words(self) -> None:
+    def _load_words(self):
         """Load words from file, downloading if necessary."""
         self._download_words()
         
@@ -106,9 +105,7 @@ class MarkovWordGenerator:
         except Exception as e:
             raise RuntimeError(f"Error loading words from {self.word_file}: {e}")
 
-
-
-    def _build_chains(self) -> None:
+    def _build_chains(self):
         """Build Markov chains from the word list."""
         # Pre-allocate start marker string to avoid repeated concatenation
         start_marker = "^" * self.order
@@ -137,7 +134,7 @@ class MarkovWordGenerator:
         self._vprint(f"Built Markov chains with {len(self.chains)} states")
         self._save_chains()
 
-    def _load_or_build_chains(self) -> None:
+    def _load_or_build_chains(self):
         """Load chains from cache or build them if cache doesn't exist or is outdated."""
         if self._should_rebuild_cache():
             self._vprint("Building Markov chains...")
@@ -146,7 +143,7 @@ class MarkovWordGenerator:
             self._vprint(f"Loading cached chains from {self.cache_file}...")
             self._load_chains()
 
-    def _should_rebuild_cache(self) -> bool:
+    def _should_rebuild_cache(self):
         """Check if we need to rebuild the cache."""
         if not os.path.exists(self.cache_file):
             return True
@@ -160,7 +157,7 @@ class MarkovWordGenerator:
         
         return False
 
-    def _save_chains(self) -> None:
+    def _save_chains(self):
         """Save the built chains to a pickle file."""
         try:
             # Create cache directory if it doesn't exist
@@ -179,7 +176,7 @@ class MarkovWordGenerator:
         except Exception as e:
             print(f"Warning: Could not save cache: {e}")
 
-    def _load_chains(self) -> None:
+    def _load_chains(self):
         """Load chains from pickle file."""
         try:
             with open(self.cache_file, 'rb') as f:
@@ -207,7 +204,7 @@ class MarkovWordGenerator:
             self._vprint("Rebuilding chains...")
             self._build_chains()
 
-    def _weighted_choice(self, counter: Counter) -> str:
+    def _weighted_choice(self, counter):
         """Choose randomly from a Counter, filtering by relative probability to the most likely choice."""
         if not counter:
             return ""
@@ -254,7 +251,7 @@ class MarkovWordGenerator:
         
         return filtered_items[0]
 
-    def generate(self, min_len: int = 3, max_len: int = 10, max_retries: int = 50) -> str:
+    def generate(self, min_len=3, max_len=10, max_retries=50):
         """Generate a single word using the Markov chain."""
         if min_len > max_len or min_len < 1:
             raise ValueError(f"Invalid length parameters: min_len={min_len}, max_len={max_len}")
@@ -307,12 +304,8 @@ class MarkovWordGenerator:
         # Return the best word we found, even if it doesn't meet exact requirements
         return best_word if best_word else "word"
 
-    def generate_batch(self, count: int = 10, 
-                      min_len: int = 3, 
-                      max_len: int = 10) -> List[str]:
+    def generate_batch(self, count=10, 
+                      min_len=3, 
+                      max_len=10):
         """Generate multiple words."""
         return [self.generate(min_len, max_len) for _ in range(count)]
-
-
-# Keep the old class name for compatibility
-NonsenseWordGenerator = MarkovWordGenerator

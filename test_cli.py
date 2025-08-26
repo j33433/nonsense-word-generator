@@ -4,10 +4,7 @@
 import subprocess
 import sys
 import re
-from typing import List, Tuple
-
-
-def run_command(cmd: str) -> Tuple[str, int]:
+def run_command(cmd):
     """Run a command and return output and return code."""
     try:
         result = subprocess.run(cmd, shell=True, capture_output=True, text=True, timeout=30)
@@ -16,12 +13,12 @@ def run_command(cmd: str) -> Tuple[str, int]:
         return "TIMEOUT", 1
 
 
-def check_word_length(word: str, min_len: int, max_len: int) -> bool:
+def check_word_length(word, min_len, max_len):
     """Check if word length is within range."""
     return min_len <= len(word) <= max_len
 
 
-def check_token_format(token: str) -> bool:
+def check_token_format(token):
     """Check if token has correct format (word-word-word)."""
     parts = token.split('-')
     return len(parts) == 3 and all(part.isalpha() for part in parts)
@@ -106,15 +103,67 @@ def test_token_mode():
             print(f"  PASS: {cmd} -> '{token}' (lengths={lengths})")
 
 
+def check_name_format(name):
+    """Check if name has correct format (Firstname Lastname)."""
+    parts = name.split(' ')
+    if len(parts) != 2:
+        return False
+    first, last = parts
+    return (first.isalpha() and first[0].isupper() and first[1:].islower() and
+            last.isalpha() and last[0].isupper() and last[1:].islower())
+
+
+def test_name_mode():
+    """Test --name mode with various length parameters."""
+    print("\nTesting --name mode...")
+    
+    tests = [
+        ("python nonsense_generator.py --name", 6, 20),
+        ("python nonsense_generator.py --name --length=3-6", 3, 6),
+        ("python nonsense_generator.py --name --length=8", 8, 8),
+        ("python nonsense_generator.py --name --order=2 --length=2-5", 2, 5),
+        ("python nonsense_generator.py --name --order=3 --length=6-12", 6, 12),
+        ("python nonsense_generator.py --name --cutoff=0.05 --length=4-8", 4, 8),
+    ]
+    
+    for cmd, min_len, max_len in tests:
+        output, code = run_command(cmd)
+        if code != 0:
+            print(f"  FAIL: {cmd} (exit code {code})")
+            continue
+            
+        lines = output.strip().split('\n')
+        if len(lines) != 1:
+            print(f"  FAIL: {cmd} (expected 1 line, got {len(lines)})")
+            continue
+            
+        name = lines[0].strip()
+        if not check_name_format(name):
+            print(f"  FAIL: {cmd} (invalid name format: '{name}')")
+            continue
+            
+        first, last = name.split(' ')
+        all_valid = True
+        for word in [first, last]:
+            if not check_word_length(word, min_len, max_len):
+                print(f"  FAIL: {cmd} (word '{word}' length {len(word)} not in range {min_len}-{max_len})")
+                all_valid = False
+                break
+                
+        if all_valid:
+            lengths = [len(first), len(last)]
+            print(f"  PASS: {cmd} -> '{name}' (lengths={lengths})")
+
+
 def test_batch_mode():
     """Test batch mode with various parameters."""
     print("\nTesting batch mode...")
     
     tests = [
-        ("python nonsense_generator.py", 50, 3, 10),
-        ("python nonsense_generator.py --count=10", 10, 3, 10),
+        ("python nonsense_generator.py", 50, 5, 12),
+        ("python nonsense_generator.py --count=10", 10, 5, 12),
         ("python nonsense_generator.py --count=5 --length=4-6", 5, 4, 6),
-        ("python nonsense_generator.py --markov --count=8", 8, 3, 10),
+        ("python nonsense_generator.py --markov --count=8", 8, 5, 12),
         ("python nonsense_generator.py --markov --count=12 --length=2-5", 12, 2, 5),
         ("python nonsense_generator.py --markov --order=3 --count=6 --length=7-12", 6, 7, 12),
     ]
@@ -166,10 +215,11 @@ def test_error_cases():
         "python nonsense_generator.py --length=0-5",   # min < 1
         "python nonsense_generator.py --single --length=-1",
         "python nonsense_generator.py --markov --words=invalid_language",
-        "python nonsense_generator.py --order=3",  # order without --markov
-        "python nonsense_generator.py --cutoff=0.05",  # cutoff without --markov
-        "python nonsense_generator.py --words=es",  # words without --markov
-        "python nonsense_generator.py --order=3 --cutoff=0.05 --words=fr",  # multiple markov options without --markov
+        "python nonsense_generator.py --order=3",  # order without --markov or --name
+        "python nonsense_generator.py --cutoff=0.05",  # cutoff without --markov or --name
+        "python nonsense_generator.py --words=es",  # words without --markov or --name
+        "python nonsense_generator.py --order=3 --cutoff=0.05 --words=fr",  # multiple markov options without --markov or --name
+        "python nonsense_generator.py --name --words=es",  # --words with --name
     ]
     
     for cmd in error_tests:
@@ -283,6 +333,7 @@ def main():
     
     test_single_mode()
     test_token_mode()
+    test_name_mode()
     test_batch_mode()
     test_error_cases()
     test_markov_parameters()
