@@ -7,7 +7,6 @@ import pickle
 from collections import defaultdict, Counter
 
 
-# Word list URLs - available as module constant
 WORD_URLS = {
     "en": "https://raw.githubusercontent.com/dwyl/english-words/master/words_alpha.txt",
     "es": "https://raw.githubusercontent.com/JorgeDuenasLerin/diccionario-espanol-txt/master/0_palabras_todas.txt",
@@ -43,7 +42,6 @@ class MarkovWordGenerator:
         self.word_file = word_file or f"cache/words_{words}.txt"
         self.cache_file = f"cache/markov_chains_order{order}_{words}.pkl"
         
-        # Pre-allocate start marker string to avoid repeated concatenation
         self.start_marker = "^" * self.order
         
         self._load_or_build_chains()
@@ -74,7 +72,6 @@ class MarkovWordGenerator:
         if self.word_list_type not in WORD_URLS:
             raise ValueError(f"Unsupported word list: {self.word_list_type}. Supported types: {list(WORD_URLS.keys())}")
         
-        # Create cache directory if it doesn't exist
         os.makedirs("cache", exist_ok=True)
             
         self._vprint(f"Downloading {self.word_list_type} word list to {self.word_file}...")
@@ -92,14 +89,11 @@ class MarkovWordGenerator:
         Args:
             word: The word to process for chain building
         """
-        # Add start and end markers
         padded_word = self.start_marker + word + "$"
         
-        # Record starting n-grams
         start_ngram = padded_word[:self.order]
         self.start_chains[start_ngram] += 1
         
-        # Build transition chains - use more efficient slicing
         for i in range(len(padded_word) - self.order):
             ngram = padded_word[i:i + self.order]
             next_char = padded_word[i + self.order]
@@ -125,7 +119,7 @@ class MarkovWordGenerator:
                 content = f.read().lower()
                 words = content.split()
                 
-                # Filter valid words in batch
+                # Only use alphabetic words 2-15 chars (filters noise and extremes)
                 valid_words = [w for w in words if w.isalpha() and 2 <= len(w) <= 15]
                 
                 for word in valid_words:
@@ -133,7 +127,6 @@ class MarkovWordGenerator:
                     self._process_word_for_chains(word)
                     word_count += 1
                     
-                    # Progress indicator for large files
                     if self.verbose and word_count % 50000 == 0:
                         self._vprint(f"Processed {word_count} words...")
                     
@@ -170,10 +163,10 @@ class MarkovWordGenerator:
         if not os.path.exists(self.cache_file):
             return True
         
-        # Check if word file is newer than cache
         if os.path.exists(self.word_file):
             word_file_time = os.path.getmtime(self.word_file)
             cache_file_time = os.path.getmtime(self.cache_file)
+            # Rebuild cache if word file is newer (user updated word lists)
             if word_file_time > cache_file_time:
                 return True
         
@@ -186,11 +179,10 @@ class MarkovWordGenerator:
         file for faster loading in future runs.
         """
         try:
-            # Create cache directory if it doesn't exist
             os.makedirs("cache", exist_ok=True)
             
             cache_data = {
-                'chains': dict(self.chains),  # Convert defaultdict to regular dict
+                'chains': dict(self.chains),
                 'start_chains': self.start_chains,
                 'word_set': self.word_set,
                 'order': self.order,
@@ -212,13 +204,11 @@ class MarkovWordGenerator:
             with open(self.cache_file, 'rb') as f:
                 cache_data = pickle.load(f)
             
-            # Verify the cache is for the same order
             if cache_data.get('order') != self.order:
                 self._vprint("Cache order mismatch, rebuilding...")
                 self._load_and_build_chains()
                 return
             
-            # Convert back to defaultdict
             self.chains = defaultdict(Counter)
             for key, counter in cache_data['chains'].items():
                 self.chains[key] = counter
@@ -249,14 +239,14 @@ class MarkovWordGenerator:
         if not counter:
             return ""
         
-        # Find the maximum probability
         total = sum(counter.values())
         if total == 0:
             return ""
         max_weight = max(counter.values())
         max_probability = max_weight / total
         
-        # Filter out choices that are much less likely than the most probable
+        # This filters out rare transitions to improve word quality
+        # by only considering choices within cutoff% of the most likely option
         min_threshold = max_probability * self.cutoff
         filtered_items = []
         filtered_weights = []
@@ -267,22 +257,18 @@ class MarkovWordGenerator:
                 filtered_items.append(item)
                 filtered_weights.append(weight)
         
-        # If filtering removed everything, fall back to original counter
         if not filtered_items:
             filtered_items = list(counter.keys())
             filtered_weights = list(counter.values())
         
-        # Fast path for small choices
         if len(filtered_items) == 1:
             return filtered_items[0]
         elif len(filtered_items) == 2:
-            # Simple binary choice
             if secrets.randbelow(filtered_weights[0] + filtered_weights[1]) < filtered_weights[0]:
                 return filtered_items[0]
             else:
                 return filtered_items[1]
         
-        # Standard weighted choice for larger sets
         filtered_total = sum(filtered_weights)
         r = secrets.randbelow(filtered_total)
         
@@ -313,11 +299,10 @@ class MarkovWordGenerator:
         best_word = ""
         
         for retry in range(max_retries):
-            # Start with a random starting n-gram
             current = self._weighted_choice(self.start_chains)
             word = ""
             
-            max_attempts = max_len * 3  # Prevent infinite loops
+            max_attempts = max_len * 3
             attempts = 0
             
             while attempts < max_attempts:
@@ -328,35 +313,29 @@ class MarkovWordGenerator:
                     
                 next_char = self._weighted_choice(self.chains[current])
                 
-                if next_char == "$":  # End marker
-                    # Accept end if word is in valid range
+                if next_char == "$":
                     if min_len <= len(word) <= max_len:
                         break
-                    # If word is too short and we're close to max attempts, accept it anyway
                     elif len(word) >= min_len // 2 and attempts > max_attempts // 2:
                         break
-                    # Otherwise ignore the end marker and continue
-                elif next_char != "^":  # Skip start markers
+                elif next_char != "^":
                     word += next_char
-                    # Stop if we've reached max length
                     if len(word) >= max_len:
                         break
-                    # For very short target lengths, be more aggressive about stopping
+                    # Aggressive early stopping for very short words to avoid getting stuck
                     if min_len <= 4 and len(word) >= min_len and secrets.randbelow(3) == 0:
                         break
                 
-                # Update current state - only if we have a valid next_char
                 if next_char != "$":
                     current = current[1:] + next_char
             
-            # Keep track of the best word we've seen
             if word and word not in self.word_set:
                 if min_len <= len(word) <= max_len:
                     return word
+                # Keep the word closest to target length range as fallback
                 elif not best_word or abs(len(word) - (min_len + max_len) // 2) < abs(len(best_word) - (min_len + max_len) // 2):
                     best_word = word
         
-        # Return the best word we found, even if it doesn't meet exact requirements
         return best_word if best_word else "word"
 
     def generate_batch(self, count=10, 

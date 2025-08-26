@@ -43,6 +43,7 @@ class SyllableWordGenerator:
         nucleus = secrets.choice(self.nuclei)
         coda = ""
         
+        # Initial syllables more likely to have onsets, final more likely to have codas
         if position == "initial" or secrets.randbelow(10) < 8:
             onset = secrets.choice(self.onsets)
         
@@ -71,6 +72,7 @@ class SyllableWordGenerator:
         for attempt in range(max_attempts):
             syllables = []
             length = 0
+            # 1-4 syllables with equal probability
             num_syllables = secrets.randbelow(4) + 1
             
             for i in range(num_syllables):
@@ -81,29 +83,23 @@ class SyllableWordGenerator:
                 else:
                     syl = self._make_syllable("middle")
                 
-                # Check if adding this syllable would exceed max_len
                 if length + len(syl) > max_len:
-                    # If we haven't added any syllables yet, try the next attempt
                     if not syllables:
-                        break  # Break out of syllable loop to try next attempt
+                        break
                     else:
-                        break  # Break out of syllable loop with current syllables
+                        break
                         
                 syllables.append(syl)
                 length += len(syl)
                 
-                # If we've reached a good length, we can stop
                 if length >= min_len:
                     break
             
             word = "".join(syllables)
             
-            # Check if word meets length requirements
             if min_len <= len(word) <= max_len:
                 return word
         
-        # If we couldn't generate a word in the range after many attempts,
-        # return the best attempt we have
         return word if 'word' in locals() else "word"
 
     def generate_batch(self, count=10, 

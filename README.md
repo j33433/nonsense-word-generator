@@ -17,14 +17,6 @@ python nonsense_generator.py
 ## Example Output
 
 ```bash
-# Syllable-based simple algorithm
-python nonsense_generator.py --single
-stearnthep
-
-# Markov chains trained on English words
-python nonsense_generator.py --single --markov
-aguantly
-
 # Batch of unique names trained on US name and surname lists
 python nonsense_generator.py --name --order=4 --count=5
 Karred Giarron
@@ -33,12 +25,27 @@ Bryann Boerum
 Alessie Eddick
 Monita Amorond
 
+# Pet names
+python nonsense_generator.py --markov --order=3 --count=20 --words=pet
+goosey        grizzy        tiggie        tucky         nikey
+earley        skers         nestles       kisma         fritty
+weave         traven        thorter       jasmindie     spooh
+camie         harles        skinne        mercupcake    sierrissy
+
 # Spanish nonsense words
 python nonsense_generator.py --markov --words=es --count=20 --order=4
 estupiría     sobrevieron   escartuchare  aguarniesest  desvanes
 geologizaría  amoradora     enterecerás   corteñarán    vocaba
 desbardábamo  trases        marcheareis   apercadentar  varetarais
-embotizáremo  pasmañanearí  descaba       enrosa        deslegaré   
+embotizáremo  pasmañanearí  descaba       enrosa        deslegaré
+
+# Syllable-based simple algorithm
+python nonsense_generator.py --single
+stearnthep
+
+# Markov chains trained on English words
+python nonsense_generator.py --single --markov
+aguantly
 
 # Tokens word-word-word
 python nonsense_generator.py --token --markov
