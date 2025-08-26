@@ -68,6 +68,7 @@ manize-misation-unequist
 **Word Lists (`--words`, default: "en")**
 - Languages: `en`, `es`, `fr`, `de`, `it`, `pt`
 - Specialized: `names`, `surnames`, `pet`
+- Custom URLs: `https://example.com/wordlist.txt`
 
 **Cutoff (`--cutoff`, default: 0.1)**
 - `0.0`: Include all transitions (most random)

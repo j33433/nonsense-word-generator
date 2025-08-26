@@ -261,6 +261,7 @@ def test_markov_parameters():
         "python nonsense_generator.py --markov --words=es --single",
         "python nonsense_generator.py --markov --words=names --single",
         "python nonsense_generator.py --markov --verbose --single",
+        "python nonsense_generator.py --markov --words=https://raw.githubusercontent.com/jneidel/animal-names/refs/heads/master/animals-common.txt --single",
     ]
     
     for cmd in tests:

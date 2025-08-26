@@ -82,8 +82,7 @@ def main():
     parser.add_argument("--cutoff", type=float, default=0.1,
                        help="Markov minimum relative probability cutoff (default: 0.1)")
     parser.add_argument("--words", type=str, default="en", 
-                       choices=list(WORD_URLS.keys()),
-                       help="Word list type (default: en) [Markov only]")
+                       help="Word list type (default: en) or custom URL [Markov only]")
     parser.add_argument("--verbose", "-v", action="store_true",
                        help="print detailed initialization messages")
     parser.add_argument("--single", action="store_true",
@@ -119,6 +118,14 @@ def main():
         if markov_options:
             print(f"Error: {', '.join(markov_options)} can only be used with --markov or --name")
             exit(1)
+    
+    # Validate custom URL or known word list type
+    if args.words.startswith(('http://', 'https://')):
+        # Custom URL - no validation needed, will be handled by MarkovWordGenerator
+        pass
+    elif args.words not in WORD_URLS and not args.name:
+        print(f"Error: Unknown word list '{args.words}'. Supported types: {list(WORD_URLS.keys())} or use a URL starting with http:// or https://")
+        exit(1)
     
     if args.name and args.words != "en":
         print("Error: --words cannot be used with --name (names use fixed 'names' and 'surnames' word lists)")

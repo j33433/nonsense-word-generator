@@ -4,6 +4,7 @@ import secrets
 import urllib.request
 import os
 import pickle
+import hashlib
 from collections import defaultdict, Counter
 
 
@@ -31,7 +32,7 @@ class MarkovWordGenerator:
             word_file: Path to word list file, downloads if None
             cutoff: Minimum probability relative to the most likely choice (0.0-1.0)
             verbose: Print detailed initialization messages
-            words: Word list type (en, es, fr, de, it, pt, names, surnames)
+            words: Word list type (en, es, fr, de, it, pt, names, surnames, pet) or URL
         """
         self.order = order
         self.cutoff = cutoff
@@ -39,13 +40,31 @@ class MarkovWordGenerator:
         self.word_list_type = words
         self.chains = defaultdict(Counter)
         self.start_chains = Counter()
-        self.word_file = word_file or f"cache/words_{words}.txt"
-        self.cache_file = f"cache/markov_chains_order{order}_{words}.pkl"
+        
+        # Handle custom URLs - use hash for safe filename
+        if self._is_url(words):
+            url_hash = hashlib.md5(words.encode()).hexdigest()
+            self.word_file = word_file or f"cache/words_url_{url_hash}.txt"
+            self.cache_file = f"cache/markov_chains_order{order}_url_{url_hash}.pkl"
+        else:
+            self.word_file = word_file or f"cache/words_{words}.txt"
+            self.cache_file = f"cache/markov_chains_order{order}_{words}.pkl"
         
         self.start_marker = "^" * self.order
         
         self._load_or_build_chains()
 
+    def _is_url(self, text):
+        """Check if text is a URL.
+        
+        Args:
+            text: String to check
+            
+        Returns:
+            bool: True if text appears to be a URL
+        """
+        return text.startswith(('http://', 'https://'))
+  
     def _vprint(self, *args, **kwargs):
         """Print only if verbose mode is enabled.
         
@@ -68,20 +87,26 @@ class MarkovWordGenerator:
         """
         if os.path.exists(self.word_file):
             return
-            
-        if self.word_list_type not in WORD_URLS:
-            raise ValueError(f"Unsupported word list: {self.word_list_type}. Supported types: {list(WORD_URLS.keys())}")
+        
+        # Determine URL to download from
+        if self._is_url(self.word_list_type):
+            url = self.word_list_type
+            display_name = f"custom URL ({url})"
+        else:
+            if self.word_list_type not in WORD_URLS:
+                raise ValueError(f"Unsupported word list: {self.word_list_type}. Supported types: {list(WORD_URLS.keys())}")
+            url = WORD_URLS[self.word_list_type]
+            display_name = self.word_list_type
         
         os.makedirs("cache", exist_ok=True)
             
-        self._vprint(f"Downloading {self.word_list_type} word list to {self.word_file}...")
-        url = WORD_URLS[self.word_list_type]
+        self._vprint(f"Downloading {display_name} word list to {self.word_file}...")
         
         try:
             urllib.request.urlretrieve(url, self.word_file)
             self._vprint(f"Downloaded {self.word_file}")
         except Exception as e:
-            raise RuntimeError(f"Failed to download word list for '{self.word_list_type}': {e}")
+            raise RuntimeError(f"Failed to download word list from '{url}': {e}")
 
     def _process_word_for_chains(self, word):
         """Process a single word to build Markov chains.
@@ -279,7 +304,7 @@ class MarkovWordGenerator:
         
         return filtered_items[0]
 
-    def generate(self, min_len=3, max_len=10, max_retries=50):
+    def generate(self, min_len=3, max_len=10, max_retries=200):
         """Generate a single word using the Markov chain.
         
         Args:
