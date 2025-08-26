@@ -322,9 +322,6 @@ class MarkovWordGenerator:
                     word += next_char
                     if len(word) >= max_len:
                         break
-                    # Aggressive early stopping for very short words to avoid getting stuck
-                    if min_len <= 4 and len(word) >= min_len and secrets.randbelow(3) == 0:
-                        break
                 
                 if next_char != "$":
                     current = current[1:] + next_char
