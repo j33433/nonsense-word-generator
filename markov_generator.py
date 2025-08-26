@@ -7,6 +7,20 @@ import pickle
 from collections import defaultdict, Counter
 
 
+# Word list URLs - available as module constant
+WORD_URLS = {
+    "en": "https://raw.githubusercontent.com/dwyl/english-words/master/words_alpha.txt",
+    "es": "https://raw.githubusercontent.com/JorgeDuenasLerin/diccionario-espanol-txt/master/0_palabras_todas.txt",
+    "fr": "https://raw.githubusercontent.com/lorenbrichter/Words/master/Words/fr.txt", 
+    "de": "https://raw.githubusercontent.com/lorenbrichter/Words/master/Words/de.txt",
+    "it": "https://raw.githubusercontent.com/napolux/paroleitaliane/master/paroleitaliane/280000_parole_italiane.txt",
+    "pt": "https://raw.githubusercontent.com/pythonprobr/palavras/master/palavras.txt",
+    "names": "https://raw.githubusercontent.com/smashew/NameDatabases/master/NamesDatabases/first%20names/us.txt",
+    "surnames": "https://raw.githubusercontent.com/smashew/NameDatabases/master/NamesDatabases/surnames/us.txt",
+    "pet": "https://raw.githubusercontent.com/jonathand-cf/wordlist-pets/refs/heads/main/pet-names.txt",
+}
+
+
 class MarkovWordGenerator:
     """Generate pronounceable nonsense words using Markov chains trained on English words."""
     
@@ -31,18 +45,6 @@ class MarkovWordGenerator:
         
         # Pre-allocate start marker string to avoid repeated concatenation
         self.start_marker = "^" * self.order
-        
-        # Word list URLs
-        self.word_urls = {
-            "en": "https://raw.githubusercontent.com/dwyl/english-words/master/words_alpha.txt",
-            "es": "https://raw.githubusercontent.com/JorgeDuenasLerin/diccionario-espanol-txt/master/0_palabras_todas.txt",
-            "fr": "https://raw.githubusercontent.com/lorenbrichter/Words/master/Words/fr.txt", 
-            "de": "https://raw.githubusercontent.com/lorenbrichter/Words/master/Words/de.txt",
-            "it": "https://raw.githubusercontent.com/napolux/paroleitaliane/master/paroleitaliane/280000_parole_italiane.txt",
-            "pt": "https://raw.githubusercontent.com/pythonprobr/palavras/master/palavras.txt",
-            "names": "https://raw.githubusercontent.com/smashew/NameDatabases/master/NamesDatabases/first%20names/us.txt",
-            "surnames": "https://raw.githubusercontent.com/smashew/NameDatabases/master/NamesDatabases/surnames/us.txt",
-        }
         
         self._load_or_build_chains()
 
@@ -69,14 +71,14 @@ class MarkovWordGenerator:
         if os.path.exists(self.word_file):
             return
             
-        if self.word_list_type not in self.word_urls:
-            raise ValueError(f"Unsupported word list: {self.word_list_type}. Supported types: {list(self.word_urls.keys())}")
+        if self.word_list_type not in WORD_URLS:
+            raise ValueError(f"Unsupported word list: {self.word_list_type}. Supported types: {list(WORD_URLS.keys())}")
         
         # Create cache directory if it doesn't exist
         os.makedirs("cache", exist_ok=True)
             
         self._vprint(f"Downloading {self.word_list_type} word list to {self.word_file}...")
-        url = self.word_urls[self.word_list_type]
+        url = WORD_URLS[self.word_list_type]
         
         try:
             urllib.request.urlretrieve(url, self.word_file)

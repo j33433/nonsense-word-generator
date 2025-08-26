@@ -3,7 +3,7 @@
 
 import argparse
 from syllable_generator import SyllableWordGenerator
-from markov_generator import MarkovWordGenerator
+from markov_generator import MarkovWordGenerator, WORD_URLS
 
 
 def generate_words(args):
@@ -64,10 +64,11 @@ def generate_words(args):
         word = gen.generate(min_len, max_len)
         print(word)
     elif args.token:
-        # Generate and print token (triplet joined by dashes)
-        words = gen.generate_batch(3, min_len, max_len)
-        token = "-".join(words)
-        print(token)
+        # Generate and print tokens (triplets joined by dashes)
+        for _ in range(args.count):
+            words = gen.generate_batch(3, min_len, max_len)
+            token = "-".join(words)
+            print(token)
     elif args.name:
         # Generate and print names using separate generators
         first_gen, last_gen = gen
@@ -96,7 +97,7 @@ def main():
     parser.add_argument("--cutoff", type=float, default=0.1,
                        help="Markov minimum relative probability cutoff (default: 0.1)")
     parser.add_argument("--words", type=str, default="en", 
-                       choices=["en", "es", "fr", "de", "it", "pt", "names", "surnames"],
+                       choices=list(WORD_URLS.keys()),
                        help="Word list type (default: en) [Markov only]")
     parser.add_argument("--verbose", "-v", action="store_true",
                        help="print detailed initialization messages")
@@ -117,7 +118,7 @@ def main():
     
     # Set appropriate default counts based on mode
     if args.count is None:
-        if args.name:
+        if args.name or args.token:
             args.count = 1
         else:
             args.count = 50
