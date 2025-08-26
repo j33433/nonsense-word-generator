@@ -110,14 +110,17 @@ def main():
                        help="generate batch of words (default mode)")
     parser.add_argument("--length", type=str, metavar="MIN-MAX",
                        help="word length range (e.g., '5-8' or '10' for exact length)")
-    parser.add_argument("--count", type=int, default=50, metavar="N",
+    parser.add_argument("--count", type=int, default=None, metavar="N",
                        help="number of words/names to generate (default: 50 for batch, 1 for --name)")
     
     args = parser.parse_args()
     
-    # Set default count for --name mode
-    if args.name and args.count == 50:  # 50 is the default, so user didn't specify --count
-        args.count = 1
+    # Set appropriate default counts based on mode
+    if args.count is None:
+        if args.name:
+            args.count = 1
+        else:
+            args.count = 50
     
     # Validate that Markov-specific options are only used with --markov or --name
     if not args.markov and not args.name:

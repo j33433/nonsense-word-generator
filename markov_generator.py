@@ -41,7 +41,6 @@ class MarkovWordGenerator:
             "surnames": "https://raw.githubusercontent.com/smashew/NameDatabases/master/NamesDatabases/surnames/us.txt",
         }
         
-        self._load_words()
         self._load_or_build_chains()
 
     def _vprint(self, *args, **kwargs):
@@ -82,81 +81,65 @@ class MarkovWordGenerator:
         except Exception as e:
             raise RuntimeError(f"Failed to download word list for '{self.word_list_type}': {e}")
 
-    def _load_words(self):
-        """Load words from file, downloading if necessary.
+    def _process_word_for_chains(self, word):
+        """Process a single word to build Markov chains.
         
-        Loads words from the word list file, filtering for alphabetic words
-        between 2-15 characters. Downloads the word list if it doesn't exist.
+        Args:
+            word: The word to process for chain building
+        """
+        # Pre-allocate start marker string to avoid repeated concatenation
+        start_marker = "^" * self.order
+        
+        # Add start and end markers
+        padded_word = start_marker + word + "$"
+        
+        # Record starting n-grams
+        start_ngram = padded_word[:self.order]
+        self.start_chains[start_ngram] += 1
+        
+        # Build transition chains - optimized loop
+        padded_len = len(padded_word)
+        for i in range(padded_len - self.order):
+            ngram = padded_word[i:i + self.order]
+            next_char = padded_word[i + self.order]
+            self.chains[ngram][next_char] += 1
+
+    def _load_and_build_chains(self):
+        """Load words from file and build Markov chains in a single pass.
+        
+        Downloads the word list if necessary, then processes each word to build
+        Markov chains without storing all words in memory simultaneously.
         
         Raises:
             RuntimeError: If the word file cannot be loaded or contains no valid words
         """
         self._download_words()
         
-        self.word_list = []
         self.word_set = set()
+        word_count = 0
         
         try:
             with open(self.word_file, 'r', encoding='utf-8') as f:
-                # Process in batches for better memory efficiency
-                batch = []
-                batch_size = 10000
-                
                 for line in f:
                     word = line.strip().lower()
                     if word and word.isalpha() and 2 <= len(word) <= 15:
-                        batch.append(word)
+                        self.word_set.add(word)
+                        self._process_word_for_chains(word)
+                        word_count += 1
                         
-                        if len(batch) >= batch_size:
-                            self.word_list.extend(batch)
-                            self.word_set.update(batch)
-                            batch = []
-                
-                # Process remaining words
-                if batch:
-                    self.word_list.extend(batch)
-                    self.word_set.update(batch)
+                        # Progress indicator for large files
+                        if self.verbose and word_count % 50000 == 0:
+                            self._vprint(f"Processed {word_count} words...")
                     
-            self._vprint(f"Loaded {len(self.word_list)} words from {self.word_file}")
+            self._vprint(f"Loaded and processed {word_count} words from {self.word_file}")
+            self._vprint(f"Built Markov chains with {len(self.chains)} states")
             
-            if not self.word_list:
+            if word_count == 0:
                 raise RuntimeError(f"No valid words found in {self.word_file}")
                 
         except Exception as e:
             raise RuntimeError(f"Error loading words from {self.word_file}: {e}")
-
-    def _build_chains(self):
-        """Build Markov chains from the word list.
         
-        Creates transition probability chains by analyzing character sequences
-        in the loaded words. Adds start (^) and end ($) markers to track
-        word boundaries. Saves the built chains to cache for future use.
-        """
-        # Pre-allocate start marker string to avoid repeated concatenation
-        start_marker = "^" * self.order
-        
-        # Process words in batches for better memory locality
-        batch_size = 1000
-        for batch_start in range(0, len(self.word_list), batch_size):
-            batch_end = min(batch_start + batch_size, len(self.word_list))
-            batch_words = self.word_list[batch_start:batch_end]
-            
-            for word in batch_words:
-                # Add start and end markers
-                padded_word = start_marker + word + "$"
-                
-                # Record starting n-grams
-                start_ngram = padded_word[:self.order]
-                self.start_chains[start_ngram] += 1
-                
-                # Build transition chains - optimized loop
-                padded_len = len(padded_word)
-                for i in range(padded_len - self.order):
-                    ngram = padded_word[i:i + self.order]
-                    next_char = padded_word[i + self.order]
-                    self.chains[ngram][next_char] += 1
-        
-        self._vprint(f"Built Markov chains with {len(self.chains)} states")
         self._save_chains()
 
     def _load_or_build_chains(self):
@@ -167,7 +150,7 @@ class MarkovWordGenerator:
         """
         if self._should_rebuild_cache():
             self._vprint("Building Markov chains...")
-            self._build_chains()
+            self._load_and_build_chains()
         else:
             self._vprint(f"Loading cached chains from {self.cache_file}...")
             self._load_chains()
@@ -205,7 +188,7 @@ class MarkovWordGenerator:
                 'start_chains': self.start_chains,
                 'word_set': self.word_set,
                 'order': self.order,
-                'word_count': len(self.word_list)
+                'word_count': len(self.word_set)
             }
             with open(self.cache_file, 'wb') as f:
                 pickle.dump(cache_data, f)
@@ -243,7 +226,7 @@ class MarkovWordGenerator:
         except Exception as e:
             self._vprint(f"Error loading cache: {e}")
             self._vprint("Rebuilding chains...")
-            self._build_chains()
+            self._load_and_build_chains()
 
     def _weighted_choice(self, counter):
         """Choose randomly from a Counter, filtering by relative probability.
