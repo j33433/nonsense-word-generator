@@ -97,9 +97,8 @@ class MarkovWordGenerator:
         start_ngram = padded_word[:self.order]
         self.start_chains[start_ngram] += 1
         
-        # Build transition chains - optimized loop
-        padded_len = len(padded_word)
-        for i in range(padded_len - self.order):
+        # Build transition chains - use more efficient slicing
+        for i in range(len(padded_word) - self.order):
             ngram = padded_word[i:i + self.order]
             next_char = padded_word[i + self.order]
             self.chains[ngram][next_char] += 1
@@ -209,7 +208,7 @@ class MarkovWordGenerator:
             # Verify the cache is for the same order
             if cache_data.get('order') != self.order:
                 self._vprint("Cache order mismatch, rebuilding...")
-                self._build_chains()
+                self._load_and_build_chains()
                 return
             
             # Convert back to defaultdict
@@ -245,6 +244,8 @@ class MarkovWordGenerator:
         
         # Find the maximum probability
         total = sum(counter.values())
+        if total == 0:
+            return ""
         max_weight = max(counter.values())
         max_probability = max_weight / total
         
@@ -337,8 +338,9 @@ class MarkovWordGenerator:
                     if min_len <= 4 and len(word) >= min_len and secrets.randbelow(3) == 0:
                         break
                 
-                # Update current state
-                current = current[1:] + next_char
+                # Update current state - only if we have a valid next_char
+                if next_char != "$":
+                    current = current[1:] + next_char
             
             # Keep track of the best word we've seen
             if word and word not in self.word_set:

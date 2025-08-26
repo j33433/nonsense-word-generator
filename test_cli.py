@@ -4,6 +4,17 @@
 import subprocess
 import sys
 import re
+import os
+import shutil
+
+
+def cleanup_cache():
+    """Remove cache directory and all its contents."""
+    if os.path.exists("cache"):
+        shutil.rmtree("cache")
+        print("Cleaned up cache directory")
+
+
 def run_command(cmd):
     """Run a command and return output and return code."""
     try:
@@ -340,6 +351,9 @@ def main():
     """Run all tests."""
     print("Testing nonsense_generator.py CLI functionality")
     print("=" * 50)
+    
+    # Clean up cache before running tests
+    cleanup_cache()
     
     test_single_mode()
     test_token_mode()
