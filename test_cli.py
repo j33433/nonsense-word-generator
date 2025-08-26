@@ -118,41 +118,51 @@ def test_name_mode():
     print("\nTesting --name mode...")
     
     tests = [
-        ("python nonsense_generator.py --name", 6, 20),
-        ("python nonsense_generator.py --name --length=3-6", 3, 6),
-        ("python nonsense_generator.py --name --length=8", 8, 8),
-        ("python nonsense_generator.py --name --order=2 --length=2-5", 2, 5),
-        ("python nonsense_generator.py --name --order=3 --length=6-12", 6, 12),
-        ("python nonsense_generator.py --name --cutoff=0.05 --length=4-8", 4, 8),
+        ("python nonsense_generator.py --name", 6, 20, 1),
+        ("python nonsense_generator.py --name --length=3-6", 3, 6, 1),
+        ("python nonsense_generator.py --name --length=8", 8, 8, 1),
+        ("python nonsense_generator.py --name --order=2 --length=2-5", 2, 5, 1),
+        ("python nonsense_generator.py --name --order=3 --length=6-12", 6, 12, 1),
+        ("python nonsense_generator.py --name --cutoff=0.05 --length=4-8", 4, 8, 1),
+        ("python nonsense_generator.py --name --count=3", 6, 20, 3),
+        ("python nonsense_generator.py --name --count=5 --length=4-7", 4, 7, 5),
     ]
     
-    for cmd, min_len, max_len in tests:
+    for cmd, min_len, max_len, expected_count in tests:
         output, code = run_command(cmd)
         if code != 0:
             print(f"  FAIL: {cmd} (exit code {code})")
             continue
             
         lines = output.strip().split('\n')
-        if len(lines) != 1:
-            print(f"  FAIL: {cmd} (expected 1 line, got {len(lines)})")
+        if len(lines) != expected_count:
+            print(f"  FAIL: {cmd} (expected {expected_count} lines, got {len(lines)})")
             continue
             
-        name = lines[0].strip()
-        if not check_name_format(name):
-            print(f"  FAIL: {cmd} (invalid name format: '{name}')")
-            continue
-            
-        first, last = name.split(' ')
         all_valid = True
-        for word in [first, last]:
-            if not check_word_length(word, min_len, max_len):
-                print(f"  FAIL: {cmd} (word '{word}' length {len(word)} not in range {min_len}-{max_len})")
+        for i, line in enumerate(lines):
+            name = line.strip()
+            if not check_name_format(name):
+                print(f"  FAIL: {cmd} (invalid name format on line {i+1}: '{name}')")
                 all_valid = False
                 break
                 
+            first, last = name.split(' ')
+            for word in [first, last]:
+                if not check_word_length(word, min_len, max_len):
+                    print(f"  FAIL: {cmd} (word '{word}' length {len(word)} not in range {min_len}-{max_len})")
+                    all_valid = False
+                    break
+            if not all_valid:
+                break
+                
         if all_valid:
-            lengths = [len(first), len(last)]
-            print(f"  PASS: {cmd} -> '{name}' (lengths={lengths})")
+            if expected_count == 1:
+                first, last = lines[0].split(' ')
+                lengths = [len(first), len(last)]
+                print(f"  PASS: {cmd} -> '{lines[0]}' (lengths={lengths})")
+            else:
+                print(f"  PASS: {cmd} -> {expected_count} names generated")
 
 
 def test_batch_mode():

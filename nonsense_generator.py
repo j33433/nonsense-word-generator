@@ -65,11 +65,12 @@ def generate_words(args):
         token = "-".join(words)
         print(token)
     elif args.name:
-        # Generate and print a first and last name using separate generators
+        # Generate and print names using separate generators
         first_gen, last_gen = gen
-        first_name = first_gen.generate(min_len, max_len).capitalize()
-        last_name = last_gen.generate(min_len, max_len).capitalize()
-        print(f"{first_name} {last_name}")
+        for _ in range(args.count):
+            first_name = first_gen.generate(min_len, max_len).capitalize()
+            last_name = last_gen.generate(min_len, max_len).capitalize()
+            print(f"{first_name} {last_name}")
     else:
         # Generate batch of words
         words = gen.generate_batch(args.count, min_len, max_len)
@@ -106,9 +107,13 @@ def main():
     parser.add_argument("--length", type=str, metavar="MIN-MAX",
                        help="word length range (e.g., '5-8' or '10' for exact length)")
     parser.add_argument("--count", type=int, default=50, metavar="N",
-                       help="number of words to generate in batch mode (default: 50)")
+                       help="number of words/names to generate (default: 50 for batch, 1 for --name)")
     
     args = parser.parse_args()
+    
+    # Set default count for --name mode
+    if args.name and args.count == 50:  # 50 is the default, so user didn't specify --count
+        args.count = 1
     
     # Validate that Markov-specific options are only used with --markov or --name
     if not args.markov and not args.name:
