@@ -29,6 +29,9 @@ class MarkovWordGenerator:
         self.word_file = word_file or f"cache/words_{words}.txt"
         self.cache_file = f"cache/markov_chains_order{order}_{words}.pkl"
         
+        # Pre-allocate start marker string to avoid repeated concatenation
+        self.start_marker = "^" * self.order
+        
         # Word list URLs
         self.word_urls = {
             "en": "https://raw.githubusercontent.com/dwyl/english-words/master/words_alpha.txt",
@@ -87,11 +90,8 @@ class MarkovWordGenerator:
         Args:
             word: The word to process for chain building
         """
-        # Pre-allocate start marker string to avoid repeated concatenation
-        start_marker = "^" * self.order
-        
         # Add start and end markers
-        padded_word = start_marker + word + "$"
+        padded_word = self.start_marker + word + "$"
         
         # Record starting n-grams
         start_ngram = padded_word[:self.order]
@@ -119,16 +119,21 @@ class MarkovWordGenerator:
         
         try:
             with open(self.word_file, 'r', encoding='utf-8') as f:
-                for line in f:
-                    word = line.strip().lower()
-                    if word and word.isalpha() and 2 <= len(word) <= 15:
-                        self.word_set.add(word)
-                        self._process_word_for_chains(word)
-                        word_count += 1
-                        
-                        # Progress indicator for large files
-                        if self.verbose and word_count % 50000 == 0:
-                            self._vprint(f"Processed {word_count} words...")
+                # Batch process: read all content at once and split
+                content = f.read().lower()
+                words = content.split()
+                
+                # Filter valid words in batch
+                valid_words = [w for w in words if w.isalpha() and 2 <= len(w) <= 15]
+                
+                for word in valid_words:
+                    self.word_set.add(word)
+                    self._process_word_for_chains(word)
+                    word_count += 1
+                    
+                    # Progress indicator for large files
+                    if self.verbose and word_count % 50000 == 0:
+                        self._vprint(f"Processed {word_count} words...")
                     
             self._vprint(f"Loaded and processed {word_count} words from {self.word_file}")
             self._vprint(f"Built Markov chains with {len(self.chains)} states")
