@@ -32,12 +32,15 @@ earley        skers         nestles       kisma         fritty
 weave         traven        thorter       jasmindie     spooh
 camie         harles        skinne        mercupcake    sierrissy
 
-# Spanish nonsense words
-python nonsense_generator.py --words=es --markov --order=4 --count=20
+# Spanish nonsense words (Hunspell dictionary with morphological expansion)
+python nonsense_generator.py --words=hunspell-es --markov --order=4 --count=20
 estupiría     sobrevieron   escartuchare  aguarniesest  desvanes
 geologizaría  amoradora     enterecerás   corteñarán    vocaba
 desbardábamo  trases        marcheareis   apercadentar  varetarais
 embotizáremo  pasmañanearí  descaba       enrosa        deslegaré
+
+# List all available word sources
+python nonsense_generator.py --list
 
 # Syllable-based simple algorithm
 python nonsense_generator.py --single
@@ -66,9 +69,10 @@ manize-misation-unequist
 - `4..6`: More realistic
 
 **Word Lists (`--words`, default: "en")**
-- Languages: `en`, `es`, `fr`, `de`, `it`, `pt`
-- Specialized: `names`, `surnames`, `pet`
+- Basic lists: `en`, `es`, `fr`, `de`, `it`, `pt`, `names`, `surnames`, `pet`
+- Hunspell dictionaries: `hunspell-en`, `hunspell-es`, `hunspell-fr`, `hunspell-de`, etc.
 - Custom URLs: `https://example.com/wordlist.txt`
+- Use `--list` to see all available options (50+ languages supported via Hunspell)
 
 **Cutoff (`--cutoff`, default: 0.1)**
 - `0.0`: Include all transitions (most random)

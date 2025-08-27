@@ -6,9 +6,10 @@ import os
 import pickle
 import hashlib
 from collections import defaultdict, Counter
-from hunspell import get_hunspell_words
+from hunspell import get_hunspell_words, HUNSPELL_DICT_URLS
 
 
+# Basic word lists
 WORD_URLS = {
     "en": "https://raw.githubusercontent.com/dwyl/english-words/master/words_alpha.txt",
     "es": "https://raw.githubusercontent.com/JorgeDuenasLerin/diccionario-espanol-txt/master/0_palabras_todas.txt",
@@ -19,24 +20,11 @@ WORD_URLS = {
     "names": "https://raw.githubusercontent.com/smashew/NameDatabases/master/NamesDatabases/first%20names/us.txt",
     "surnames": "https://raw.githubusercontent.com/smashew/NameDatabases/master/NamesDatabases/surnames/us.txt",
     "pet": "https://raw.githubusercontent.com/jonathand-cf/wordlist-pets/refs/heads/main/pet-names.txt",
-    # Hunspell dictionaries (higher quality, morphologically aware)
-    "hunspell-en": "hunspell:en",
-    "hunspell-es": "hunspell:es", 
-    "hunspell-fr": "hunspell:fr",
-    "hunspell-de": "hunspell:de",
-    "hunspell-it": "hunspell:it",
-    "hunspell-pt": "hunspell:pt",
-    "hunspell-ru": "hunspell:ru",
-    "hunspell-pl": "hunspell:pl",
-    "hunspell-nl": "hunspell:nl",
-    "hunspell-sv": "hunspell:sv",
-    "hunspell-da": "hunspell:da",
-    "hunspell-no": "hunspell:no",
-    "hunspell-cs": "hunspell:cs",
-    "hunspell-hu": "hunspell:hu",
-    "hunspell-tr": "hunspell:tr",
-    "hunspell-la": "hunspell:la",
 }
+
+# Automatically add Hunspell dictionaries
+for lang_code in HUNSPELL_DICT_URLS.keys():
+    WORD_URLS[f"hunspell-{lang_code}"] = f"hunspell:{lang_code}"
 
 
 class MarkovWordGenerator:
