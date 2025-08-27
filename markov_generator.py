@@ -6,6 +6,7 @@ import os
 import pickle
 import hashlib
 from collections import defaultdict, Counter
+from hunspell import get_hunspell_words
 
 
 WORD_URLS = {
@@ -18,6 +19,23 @@ WORD_URLS = {
     "names": "https://raw.githubusercontent.com/smashew/NameDatabases/master/NamesDatabases/first%20names/us.txt",
     "surnames": "https://raw.githubusercontent.com/smashew/NameDatabases/master/NamesDatabases/surnames/us.txt",
     "pet": "https://raw.githubusercontent.com/jonathand-cf/wordlist-pets/refs/heads/main/pet-names.txt",
+    # Hunspell dictionaries (higher quality, morphologically aware)
+    "hunspell-en": "hunspell:en",
+    "hunspell-es": "hunspell:es", 
+    "hunspell-fr": "hunspell:fr",
+    "hunspell-de": "hunspell:de",
+    "hunspell-it": "hunspell:it",
+    "hunspell-pt": "hunspell:pt",
+    "hunspell-ru": "hunspell:ru",
+    "hunspell-pl": "hunspell:pl",
+    "hunspell-nl": "hunspell:nl",
+    "hunspell-sv": "hunspell:sv",
+    "hunspell-da": "hunspell:da",
+    "hunspell-no": "hunspell:no",
+    "hunspell-cs": "hunspell:cs",
+    "hunspell-hu": "hunspell:hu",
+    "hunspell-tr": "hunspell:tr",
+    "hunspell-la": "hunspell:la",
 }
 
 
@@ -32,7 +50,7 @@ class MarkovWordGenerator:
             word_file: Path to word list file, downloads if None
             cutoff: Minimum probability relative to the most likely choice (0.0-1.0)
             verbose: Print detailed initialization messages
-            words: Word list type (en, es, fr, de, it, pt, names, surnames, pet) or URL
+            words: Word list type (en, es, ...) or URL
         """
         self.order = order
         self.cutoff = cutoff
@@ -44,11 +62,13 @@ class MarkovWordGenerator:
         # Handle custom URLs - use hash for safe filename
         if self._is_url(words):
             url_hash = hashlib.md5(words.encode()).hexdigest()
-            self.word_file = word_file or f"cache/words_url_{url_hash}.txt"
-            self.cache_file = f"cache/markov_chains_order{order}_url_{url_hash}.pkl"
+            safe_words = "url"
+            self.word_file = word_file or f"cache/words_{safe_words}_{url_hash}.txt"
+            self.cache_file = f"cache/markov_chains_order{order}_{safe_words}_{url_hash}.pkl"
         else:
-            self.word_file = word_file or f"cache/words_{words}.txt"
-            self.cache_file = f"cache/markov_chains_order{order}_{words}.pkl"
+            safe_words = words.replace(":", "_")
+            self.word_file = word_file or f"cache/words_{safe_words}.txt"
+            self.cache_file = f"cache/markov_chains_order{order}_{safe_words}.pkl"
         
         self.start_marker = "^" * self.order
         
@@ -80,12 +100,27 @@ class MarkovWordGenerator:
         
         Downloads the word list for the specified language/type from the internet
         and saves it to the cache directory. Creates the cache directory if needed.
+        Uses atomic downloads to prevent corruption from interrupted transfers.
         
         Raises:
             ValueError: If the word list type is not supported
             RuntimeError: If the download fails
         """
         if os.path.exists(self.word_file):
+            return
+        
+        # Handle Hunspell dictionaries
+        if self.word_list_type.startswith("hunspell:"):
+            lang_code = self.word_list_type.split(":", 1)[1]
+            self._vprint(f"Loading Hunspell dictionary for {lang_code}...")
+            words = get_hunspell_words(lang_code, verbose=self.verbose)
+            
+            # Save words to cache file
+            os.makedirs("cache", exist_ok=True)
+            with open(self.word_file, 'w', encoding='utf-8') as f:
+                for word in sorted(words):
+                    f.write(word + '\n')
+            self._vprint(f"Cached {len(words)} Hunspell words to {self.word_file}")
             return
         
         # Determine URL to download from
@@ -95,17 +130,54 @@ class MarkovWordGenerator:
         else:
             if self.word_list_type not in WORD_URLS:
                 raise ValueError(f"Unsupported word list: {self.word_list_type}. Supported types: {list(WORD_URLS.keys())}")
-            url = WORD_URLS[self.word_list_type]
+            
+            url_or_hunspell = WORD_URLS[self.word_list_type]
+            if url_or_hunspell.startswith("hunspell:"):
+                # Redirect to Hunspell handler
+                lang_code = url_or_hunspell.split(":", 1)[1]
+                self._vprint(f"Loading Hunspell dictionary for {lang_code}...")
+                words = get_hunspell_words(lang_code, verbose=self.verbose)
+                
+                # Save words to cache file
+                os.makedirs("cache", exist_ok=True)
+                with open(self.word_file, 'w', encoding='utf-8') as f:
+                    for word in sorted(words):
+                        f.write(word + '\n')
+                self._vprint(f"Cached {len(words)} Hunspell words to {self.word_file}")
+                return
+            
+            url = url_or_hunspell
             display_name = self.word_list_type
         
         os.makedirs("cache", exist_ok=True)
             
         self._vprint(f"Downloading {display_name} word list to {self.word_file}...")
         
+        # Use temporary file for atomic download
+        temp_file = self.word_file + ".tmp"
+        
         try:
-            urllib.request.urlretrieve(url, self.word_file)
+            # Clean up any existing temp file
+            if os.path.exists(temp_file):
+                os.remove(temp_file)
+            
+            urllib.request.urlretrieve(url, temp_file)
+            
+            # Verify the download has some content
+            if os.path.getsize(temp_file) == 0:
+                raise RuntimeError("Downloaded file is empty")
+            
+            # Atomic move - only replace the target file if download succeeded
+            os.rename(temp_file, self.word_file)
             self._vprint(f"Downloaded {self.word_file}")
+            
         except Exception as e:
+            # Clean up temp file on failure
+            if os.path.exists(temp_file):
+                try:
+                    os.remove(temp_file)
+                except:
+                    pass
             raise RuntimeError(f"Failed to download word list from '{url}': {e}")
 
     def _process_word_for_chains(self, word):

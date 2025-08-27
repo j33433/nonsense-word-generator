@@ -4,6 +4,33 @@
 import argparse
 from syllable_generator import SyllableWordGenerator
 from markov_generator import MarkovWordGenerator, WORD_URLS
+from hunspell import HUNSPELL_DICT_URLS
+
+
+def list_word_sources():
+    """List all available word sources."""
+    print("Available word lists:")
+    print()
+    
+    print("Basic word lists:")
+    basic_lists = {k: v for k, v in WORD_URLS.items() if not k.startswith("hunspell-")}
+    for name in sorted(basic_lists.keys()):
+        print(f"  {name}")
+    
+    print()
+    print("Hunspell dictionaries (higher quality, morphologically aware):")
+    hunspell_lists = {k: v for k, v in WORD_URLS.items() if k.startswith("hunspell-")}
+    for name in sorted(hunspell_lists.keys()):
+        lang_code = name.replace("hunspell-", "")
+        print(f"  {name} ({lang_code})")
+    
+    print()
+    print("You can also use custom URLs starting with http:// or https://")
+    print()
+    print("Examples:")
+    print("  python nonsense_generator.py --markov --words=en")
+    print("  python nonsense_generator.py --markov --words=hunspell-es")
+    print("  python nonsense_generator.py --markov --words=https://example.com/wordlist.txt")
 
 
 def generate_words(args):
@@ -97,8 +124,14 @@ def main():
                        help="word length range (e.g., '5-8' or '10' for exact length)")
     parser.add_argument("--count", type=int, default=None, metavar="N",
                        help="number of words/names to generate (default: 50 for batch, 1 for --name)")
+    parser.add_argument("--list", action="store_true",
+                       help="list all available word lists and exit")
     
     args = parser.parse_args()
+    
+    if args.list:
+        list_word_sources()
+        return
     
     if args.count is None:
         if args.name or args.token:
