@@ -3,7 +3,8 @@
 
 import argparse
 from syllable_generator import SyllableWordGenerator
-from markov_generator import MarkovWordGenerator, WORD_URLS
+from markov_generator import MarkovWordGenerator
+from word_loader import WORD_URLS, parse_length
 from hunspell import HUNSPELL_DICT_URLS
 
 
@@ -33,19 +34,19 @@ def list_word_sources():
     print("  python nonsense_generator.py --markov --words=https://example.com/wordlist.txt")
 
 
-def generate_words(args):
-    """Generate words based on command line arguments.
+def validate_args(args):
+    """Validate command line arguments.
     
     Args:
         args: Parsed command line arguments from argparse
+        
+    Returns:
+        tuple: (min_len, max_len) validated length parameters
     """
+    # Parse and validate length
     if args.length:
         try:
-            if '-' in args.length:
-                min_str, max_str = args.length.split('-', 1)
-                min_len, max_len = int(min_str), int(max_str)
-            else:
-                min_len = max_len = int(args.length)
+            min_len, max_len = parse_length(args.length)
         except ValueError:
             print(f"Error: Invalid length format '{args.length}'. Use format like '5-8' or '6'")
             exit(1)
@@ -54,6 +55,7 @@ def generate_words(args):
             print(f"Error: Invalid length range {min_len}-{max_len}. Min must be >= 1 and <= max.")
             exit(1)
     else:
+        # Default lengths based on mode
         if args.single:
             min_len, max_len = 8, 12
         elif args.token:
@@ -62,6 +64,45 @@ def generate_words(args):
             min_len, max_len = 6, 20
         else:
             min_len, max_len = 5, 12
+    
+    # Validate Markov-only options
+    if not args.markov and not args.name:
+        markov_options = []
+        if args.order != 2:
+            markov_options.append("--order")
+        if args.cutoff != 0.1:
+            markov_options.append("--cutoff")
+        if args.words != "en":
+            markov_options.append("--words")
+        if args.prefix:
+            markov_options.append("--prefix")
+        
+        if markov_options:
+            print(f"Error: {', '.join(markov_options)} can only be used with --markov or --name")
+            exit(1)
+    
+    # Validate word source
+    if args.words.startswith(('http://', 'https://')):
+        pass  # Custom URL - no validation needed
+    elif args.words not in WORD_URLS and not args.name:
+        print(f"Error: Unknown word list '{args.words}'. Supported types: {list(WORD_URLS.keys())} or use a URL starting with http:// or https://")
+        exit(1)
+    
+    # Validate name mode restrictions
+    if args.name and args.words != "en":
+        print("Error: --words cannot be used with --name (names use fixed 'names' and 'surnames' word lists)")
+        exit(1)
+    
+    return min_len, max_len
+
+
+def generate_words(args):
+    """Generate words based on command line arguments.
+    
+    Args:
+        args: Parsed command line arguments from argparse
+    """
+    min_len, max_len = validate_args(args)
     
     if args.markov or args.name:
         if args.verbose:
@@ -141,32 +182,6 @@ def main():
         else:
             args.count = 50
     
-    if not args.markov and not args.name:
-        markov_options = []
-        if args.order != 2:
-            markov_options.append("--order")
-        if args.cutoff != 0.1:
-            markov_options.append("--cutoff")
-        if args.words != "en":
-            markov_options.append("--words")
-        if args.prefix:
-            markov_options.append("--prefix")
-        
-        if markov_options:
-            print(f"Error: {', '.join(markov_options)} can only be used with --markov or --name")
-            exit(1)
-    
-    # Validate custom URL or known word list type
-    if args.words.startswith(('http://', 'https://')):
-        # Custom URL - no validation needed, will be handled by MarkovWordGenerator
-        pass
-    elif args.words not in WORD_URLS and not args.name:
-        print(f"Error: Unknown word list '{args.words}'. Supported types: {list(WORD_URLS.keys())} or use a URL starting with http:// or https://")
-        exit(1)
-    
-    if args.name and args.words != "en":
-        print("Error: --words cannot be used with --name (names use fixed 'names' and 'surnames' word lists)")
-        exit(1)
     
     generate_words(args)
 

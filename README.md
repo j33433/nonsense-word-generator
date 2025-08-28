@@ -114,9 +114,9 @@ words = generator.generate_batch(10)
 - Subsequent runs use cached files (much faster)
 - Use `--verbose` to see initialization progress
 
-## License
-
-MIT
-
 ## Vibe Coded 🤖
 Aider with Claude
+
+## License
+MIT
+
