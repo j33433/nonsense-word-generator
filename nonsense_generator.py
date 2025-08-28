@@ -78,21 +78,21 @@ def generate_words(args):
         gen = SyllableWordGenerator()
     
     if args.single:
-        word = gen.generate(min_len, max_len)
+        word = gen.generate(min_len, max_len, prefix=args.prefix)
         print(word)
     elif args.token:
         for _ in range(args.count):
-            words = gen.generate_batch(3, min_len, max_len)
+            words = gen.generate_batch(3, min_len, max_len, prefix=args.prefix)
             token = "-".join(words)
             print(token)
     elif args.name:
         first_gen, last_gen = gen
         for _ in range(args.count):
-            first_name = first_gen.generate(min_len, max_len).capitalize()
+            first_name = first_gen.generate(min_len, max_len, prefix=args.prefix).capitalize()
             last_name = last_gen.generate(min_len, max_len).capitalize()
             print(f"{first_name} {last_name}")
     else:
-        words = gen.generate_batch(args.count, min_len, max_len)
+        words = gen.generate_batch(args.count, min_len, max_len, prefix=args.prefix)
         max_width = max(max(len(word) for word in words), 12)
         for i in range(0, len(words), 5):
             row = words[i:i+5]
@@ -124,6 +124,8 @@ def main():
                        help="word length range (e.g., '5-8' or '10' for exact length)")
     parser.add_argument("--count", type=int, default=None, metavar="N",
                        help="number of words/names to generate (default: 50 for batch, 1 for --name)")
+    parser.add_argument("--prefix", type=str, metavar="PREFIX",
+                       help="start generated words with this prefix [Markov only]")
     parser.add_argument("--list", action="store_true",
                        help="list all available word lists and exit")
     
@@ -147,6 +149,8 @@ def main():
             markov_options.append("--cutoff")
         if args.words != "en":
             markov_options.append("--words")
+        if args.prefix:
+            markov_options.append("--prefix")
         
         if markov_options:
             print(f"Error: {', '.join(markov_options)} can only be used with --markov or --name")

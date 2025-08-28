@@ -283,6 +283,87 @@ def test_markov_parameters():
                 print(f"  FAIL: {cmd} (no valid word found in output)")
 
 
+def test_prefix_functionality():
+    """Test prefix functionality with Markov chains."""
+    print("\nTesting prefix functionality...")
+    
+    tests = [
+        ("python nonsense_generator.py --markov --prefix=steve --single", "steve"),
+        ("python nonsense_generator.py --markov --prefix=joe --single", "joe"),
+        ("python nonsense_generator.py --markov --prefix=test --single", "test"),
+        ("python nonsense_generator.py --markov --words=names --prefix=james --single", "james"),
+        ("python nonsense_generator.py --markov --prefix=cat --count=5", "cat"),
+        ("python nonsense_generator.py --markov --prefix=dog --token", "dog"),
+        ("python nonsense_generator.py --name --prefix=alex", "alex"),
+    ]
+    
+    for cmd, expected_prefix in tests:
+        output, code = run_command(cmd)
+        if code != 0:
+            print(f"  FAIL: {cmd} (exit code {code})")
+            continue
+            
+        lines = output.strip().split('\n')
+        # Find the actual output (last non-verbose line)
+        result_lines = []
+        for line in lines:
+            if line.strip() and not line.startswith(('Initializing', 'Loading', 'Downloaded', 'Built', 'Loaded', 'Saved')):
+                result_lines.append(line.strip())
+        
+        if not result_lines:
+            print(f"  FAIL: {cmd} (no output found)")
+            continue
+            
+        all_valid = True
+        for line in result_lines:
+            if "--token" in cmd:
+                # For token mode, check each word in the token
+                words = line.split('-')
+                for word in words:
+                    if not word.lower().startswith(expected_prefix.lower()):
+                        print(f"  FAIL: {cmd} (word '{word}' doesn't start with '{expected_prefix}')")
+                        all_valid = False
+                        break
+            elif "--name" in cmd:
+                # For name mode, check first name only
+                parts = line.split(' ')
+                if len(parts) >= 1:
+                    first_name = parts[0].lower()
+                    if not first_name.startswith(expected_prefix.lower()):
+                        print(f"  FAIL: {cmd} (first name '{parts[0]}' doesn't start with '{expected_prefix}')")
+                        all_valid = False
+                else:
+                    print(f"  FAIL: {cmd} (invalid name format: '{line}')")
+                    all_valid = False
+            elif "--count=" in cmd:
+                # For batch mode, check each word
+                words = []
+                for batch_line in result_lines:
+                    row_words = [w.strip() for w in batch_line.split() if w.strip()]
+                    words.extend(row_words)
+                
+                for word in words:
+                    if not word.lower().startswith(expected_prefix.lower()):
+                        print(f"  FAIL: {cmd} (word '{word}' doesn't start with '{expected_prefix}')")
+                        all_valid = False
+                        break
+                break  # Only check once for batch mode
+            else:
+                # For single mode, check the word directly
+                if not line.lower().startswith(expected_prefix.lower()):
+                    print(f"  FAIL: {cmd} (word '{line}' doesn't start with '{expected_prefix}')")
+                    all_valid = False
+            
+            if not all_valid:
+                break
+                
+        if all_valid:
+            if len(result_lines) == 1:
+                print(f"  PASS: {cmd} -> '{result_lines[0]}'")
+            else:
+                print(f"  PASS: {cmd} -> {len(result_lines)} results with prefix '{expected_prefix}'")
+
+
 def test_length_ranges():
     """Test specific length ranges to verify min-max functionality."""
     print("\nTesting length ranges...")
@@ -362,6 +443,7 @@ def main():
     test_batch_mode()
     test_error_cases()
     test_markov_parameters()
+    test_prefix_functionality()
     test_length_ranges()
     
     print("\n" + "=" * 50)

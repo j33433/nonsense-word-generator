@@ -34,10 +34,15 @@ camie         harles        skinne        mercupcake    sierrissy
 
 # Spanish nonsense words (Hunspell dictionary with morphological expansion)
 python nonsense_generator.py --words=hunspell-es --markov --order=4 --count=20
-estupiría     sobrevieron   escartuchare  aguarniesest  desvanes
-geologizaría  amoradora     enterecerás   corteñarán    vocaba
-desbardábamo  trases        marcheareis   apercadentar  varetarais
-embotizáremo  pasmañanearí  descaba       enrosa        deslegaré
+dicóticalmen  bereño        gualdeo       surro         solemia
+aranjita      tabander      raspud        comente       paradillo
+basador       atralita      cartulio      turbintropez  embre
+disparrafall  advertiente   panquerero    managnósteno  impolladura
+
+# Names starting with a joe
+python nonsense_generator.py --markov --words=names --prefix=joe --order=2 --count=10 --length=5-20
+joemelynda    joessilbara   joela         joesty        joetherra
+joellena      joett         joelia        joell         joesanda
 
 # List all available word sources
 python nonsense_generator.py --list
@@ -78,6 +83,11 @@ manize-misation-unequist
 - `0.0`: Include all transitions (most random)
 - `0.1`: Filter rare patterns (balanced)
 - `0.5`: Conservative, predictable output
+
+**Prefix (`--prefix`)**
+- Start generated words with a specific prefix
+- Only works with Markov chains (`--markov` or `--name`)
+- Example: `--prefix=steve` generates words like "stevenson", "stevie"
 
 ## Python API
 

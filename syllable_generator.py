@@ -52,12 +52,13 @@ class SyllableWordGenerator:
         
         return onset + nucleus + coda
 
-    def generate(self, min_len=3, max_len=10):
+    def generate(self, min_len=3, max_len=10, prefix=None):
         """Generate a single pronounceable word using syllable components.
         
         Args:
             min_len: Minimum word length
             max_len: Maximum word length
+            prefix: Ignored (syllable generator doesn't support prefixes)
             
         Returns:
             str: Generated word within the specified length range
@@ -104,15 +105,17 @@ class SyllableWordGenerator:
 
     def generate_batch(self, count=10, 
                       min_len=3, 
-                      max_len=10):
+                      max_len=10,
+                      prefix=None):
         """Generate multiple pronounceable words.
         
         Args:
             count: Number of words to generate
             min_len: Minimum word length
             max_len: Maximum word length
+            prefix: Ignored (syllable generator doesn't support prefixes)
             
         Returns:
             list: List of generated words
         """
-        return [self.generate(min_len, max_len) for _ in range(count)]
+        return [self.generate(min_len, max_len, prefix=prefix) for _ in range(count)]

@@ -364,13 +364,14 @@ class MarkovWordGenerator:
         
         return filtered_items[0]
 
-    def generate(self, min_len=3, max_len=10, max_retries=200):
+    def generate(self, min_len=3, max_len=10, max_retries=200, prefix=None):
         """Generate a single word using the Markov chain.
         
         Args:
             min_len: Minimum word length
             max_len: Maximum word length  
             max_retries: Maximum attempts to generate a valid word
+            prefix: Optional prefix to start the word with
             
         Returns:
             str: Generated word that doesn't exist in the training data
@@ -380,6 +381,9 @@ class MarkovWordGenerator:
         """
         if min_len > max_len or min_len < 1:
             raise ValueError(f"Invalid length parameters: min_len={min_len}, max_len={max_len}")
+        
+        if prefix:
+            return self.generate_with_prefix(prefix, min_len, max_len, max_retries)
         
         best_word = ""
         
@@ -420,17 +424,108 @@ class MarkovWordGenerator:
         
         return best_word if best_word else "word"
 
+    def generate_with_prefix(self, prefix, min_len=3, max_len=10, max_retries=200):
+        """Generate a single word starting with the given prefix using the Markov chain.
+        
+        Args:
+            prefix: String to start the word with
+            min_len: Minimum word length
+            max_len: Maximum word length  
+            max_retries: Maximum attempts to generate a valid word
+            
+        Returns:
+            str: Generated word starting with prefix that doesn't exist in the training data
+            
+        Raises:
+            ValueError: If min_len > max_len or min_len < 1
+        """
+        if min_len > max_len or min_len < 1:
+            raise ValueError(f"Invalid length parameters: min_len={min_len}, max_len={max_len}")
+        
+        if not prefix:
+            return self.generate(min_len, max_len, max_retries)
+        
+        prefix = prefix.lower()
+        best_word = ""
+        
+        for retry in range(max_retries):
+            word = prefix
+            
+            # Initialize the current state based on the prefix
+            if len(prefix) >= self.order:
+                # Use the last 'order' characters of the prefix as the current state
+                current = prefix[-self.order:]
+            else:
+                # Pad the prefix with start markers to reach the required order
+                padded_prefix = self.start_marker + prefix
+                if len(padded_prefix) >= self.order:
+                    current = padded_prefix[-self.order:]
+                else:
+                    # If still too short, pad more with start markers
+                    current = (self.start_marker * self.order + prefix)[-self.order:]
+            
+            max_attempts = max_len * 3
+            attempts = 0
+            
+            while attempts < max_attempts:
+                attempts += 1
+                
+                if current not in self.chains:
+                    break
+                    
+                next_char = self._weighted_choice(self.chains[current])
+                
+                if next_char == "$":
+                    if min_len <= len(word) <= max_len:
+                        break
+                    elif len(word) >= min_len // 2 and attempts > max_attempts // 2:
+                        break
+                elif next_char != "^":
+                    word += next_char
+                    if len(word) >= max_len:
+                        break
+                
+                if next_char != "$":
+                    current = current[1:] + next_char
+            
+            if word and word not in self.word_set:
+                if min_len <= len(word) <= max_len:
+                    return word
+                # Keep the word closest to target length range as fallback
+                elif not best_word or abs(len(word) - (min_len + max_len) // 2) < abs(len(best_word) - (min_len + max_len) // 2):
+                    best_word = word
+        
+        return best_word if best_word else prefix
+
     def generate_batch(self, count=10, 
                       min_len=3, 
-                      max_len=10):
+                      max_len=10,
+                      prefix=None):
         """Generate multiple words.
         
         Args:
             count: Number of words to generate
             min_len: Minimum word length
             max_len: Maximum word length
+            prefix: Optional prefix to start each word with
             
         Returns:
             list: List of generated words
         """
-        return [self.generate(min_len, max_len) for _ in range(count)]
+        return [self.generate(min_len, max_len, prefix=prefix) for _ in range(count)]
+
+    def generate_batch_with_prefix(self, prefix, count=10, 
+                                  min_len=3, 
+                                  max_len=10):
+        """Generate multiple words starting with the given prefix.
+        
+        Args:
+            prefix: String to start each word with
+            count: Number of words to generate
+            min_len: Minimum word length
+            max_len: Maximum word length
+            
+        Returns:
+            list: List of generated words starting with prefix
+        """
+        return self.generate_batch(count, min_len, max_len, prefix=prefix)
