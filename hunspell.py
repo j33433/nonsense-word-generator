@@ -266,7 +266,6 @@ def download_hunspell_dict(url, cache_dir="cache", lang_code=None):
         raise RuntimeError(f"Failed to download Hunspell dictionary from '{url}': {e}")
 
 
-# Known Hunspell dictionary URLs (these are .dic files from the repository you found)
 HUNSPELL_DICT_URLS = {
     "ar": "https://raw.githubusercontent.com/titoBouzout/Dictionaries/master/Arabic.dic",
     "hy-east": "https://raw.githubusercontent.com/titoBouzout/Dictionaries/master/Armenian%20(Eastern).dic",

@@ -1,6 +1,6 @@
 # Nonsense Word Generator
 
-Generate unique names for characters, online aliases, places, products, pets, brand names, hostnames, or any creative project that needs realistic-sounding but original words.
+Generate unique names for characters, online aliases, places, products, pets, brand names, hostnames or other realistic-sounding but original words.
 
 Two generation methods available:
 - **Syllable-based**: Fast generation using phonetic rules (default)
@@ -117,3 +117,6 @@ words = generator.generate_batch(10)
 ## License
 
 MIT
+
+## Vibe Coded 🤖
+Aider with Claude
