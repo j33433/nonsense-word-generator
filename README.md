@@ -33,13 +33,13 @@ weave         traven        thorter       jasmindie     spooh
 camie         harles        skinne        mercupcake    sierrissy
 
 # Spanish nonsense words (Hunspell dictionary with morphological expansion)
-python nonsense_generator.py --words=hunspell-es --markov --order=4 --count=20
+python nonsense_generator.py --words=es --markov --order=4 --count=20
 dicóticalmen  bereño        gualdeo       surro         solemia
 aranjita      tabander      raspud        comente       paradillo
 basador       atralita      cartulio      turbintropez  embre
 disparrafall  advertiente   panquerero    managnósteno  impolladura
 
-# Names starting with a joe
+# Names starting with a prefix
 python nonsense_generator.py --markov --words=names --prefix=joe --order=2 --count=10 --length=5-20
 joemelynda    joessilbara   joela         joesty        joetherra
 joellena      joett         joelia        joell         joesanda
@@ -54,24 +54,19 @@ augation      taniereation  amition       demication    mangablotion
 
 # List all available word sources
 python nonsense_generator.py --list
-Basic word lists:
-  de
-  en
-  es
-  fr
-  it
+Language dictionaries (Hunspell - high quality, morphologically aware):
+  ar
+  be
+  bg
+  ca
+  cs
+  cy
+  ...
+
+Special word lists:
   names
   pet
-  pt
   surnames
-
-Hunspell dictionaries (higher quality, morphologically aware):
-  hunspell-ar (ar)
-  hunspell-be (be)
-  hunspell-bg (bg)
-  hunspell-ca (ca)
-  hunspell-cs (cs)
-  ...
  
 # Syllable-based simple algorithm
 python nonsense_generator.py --single
@@ -100,8 +95,8 @@ manize-misation-unequist
 - `4..6`: More realistic
 
 **Word Lists (`--words`, default: "en")**
-- Basic lists: `en`, `es`, `fr`, `de`, `it`, `pt`, `names`, `surnames`, `pet`
-- Hunspell dictionaries: `hunspell-en`, `hunspell-es`, `hunspell-fr`, `hunspell-de`, etc.
+- Language dictionaries (Hunspell): `en`, `es`, `fr`, `de`, `it`, `pt`, `ar`, `bg`, `ca`, `cs`, etc.
+- Special word lists: `names`, `surnames`, `pet`
 - Custom URLs: `https://example.com/wordlist.txt`
 - Use `--list` to see all available options (50+ languages supported via Hunspell)
 

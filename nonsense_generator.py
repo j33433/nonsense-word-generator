@@ -10,24 +10,31 @@ from hunspell import HUNSPELL_DICT_URLS
 
 def list_word_sources():
     """List all available word sources."""
-    print("Basic word lists:")
-    basic_lists = {k: v for k, v in WORD_URLS.items() if not k.startswith("hunspell-")}
-    for name in sorted(basic_lists.keys()):
+    # Separate language dictionaries from special lists
+    language_lists = {}
+    special_lists = {}
+    
+    for name, url in WORD_URLS.items():
+        if url.startswith("hunspell:"):
+            language_lists[name] = url
+        else:
+            special_lists[name] = url
+    
+    print("Language dictionaries (Hunspell - high quality, morphologically aware):")
+    for name in sorted(language_lists.keys()):
         print(f"  {name}")
     
     print()
-    print("Hunspell dictionaries (higher quality, morphologically aware):")
-    hunspell_lists = {k: v for k, v in WORD_URLS.items() if k.startswith("hunspell-")}
-    for name in sorted(hunspell_lists.keys()):
-        lang_code = name.replace("hunspell-", "")
-        print(f"  {name} ({lang_code})")
+    print("Special word lists:")
+    for name in sorted(special_lists.keys()):
+        print(f"  {name}")
     
     print()
     print("You can also use custom URLs starting with http:// or https://")
     print()
     print("Examples:")
     print("  python nonsense_generator.py --markov --words=en")
-    print("  python nonsense_generator.py --markov --words=hunspell-es")
+    print("  python nonsense_generator.py --markov --words=es")
     print("  python nonsense_generator.py --markov --words=https://example.com/wordlist.txt")
 
 
@@ -143,9 +150,20 @@ def generate_words(args):
     elif args.name:
         first_gen, last_gen = gen
         for _ in range(args.count):
-            first_name = first_gen.generate(min_len, max_len, prefix=args.prefix, suffix=args.suffix).capitalize()
-            last_name = last_gen.generate(min_len, max_len).capitalize()
-            print(f"{first_name} {last_name}")
+            # Generate names with retry logic to ensure length constraints are met
+            max_retries = 50
+            for retry in range(max_retries):
+                first_name = first_gen.generate(min_len, max_len, prefix=args.prefix, suffix=args.suffix).capitalize()
+                last_name = last_gen.generate(min_len, max_len).capitalize()
+                
+                # Check if both names meet the length constraints
+                if (min_len <= len(first_name) <= max_len and 
+                    min_len <= len(last_name) <= max_len):
+                    print(f"{first_name} {last_name}")
+                    break
+            else:
+                # Fallback if we can't generate valid names within constraints
+                print(f"{first_name} {last_name}")
     else:
         if isinstance(gen, MarkovWordGenerator):
             words = gen.generate_batch(args.count, min_len, max_len, prefix=args.prefix, suffix=args.suffix)

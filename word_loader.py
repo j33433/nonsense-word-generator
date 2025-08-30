@@ -6,22 +6,16 @@ from hunspell import get_hunspell_words, HUNSPELL_DICT_URLS
 from cache_manager import CacheManager
 
 
-# Basic word lists
+# Special word lists (non-language dictionaries)
 WORD_URLS = {
-    "en": "https://raw.githubusercontent.com/dwyl/english-words/master/words_alpha.txt",
-    "es": "https://raw.githubusercontent.com/JorgeDuenasLerin/diccionario-espanol-txt/master/0_palabras_todas.txt",
-    "fr": "https://raw.githubusercontent.com/lorenbrichter/Words/master/Words/fr.txt", 
-    "de": "https://raw.githubusercontent.com/lorenbrichter/Words/master/Words/de.txt",
-    "it": "https://raw.githubusercontent.com/napolux/paroleitaliane/master/paroleitaliane/280000_parole_italiane.txt",
-    "pt": "https://raw.githubusercontent.com/pythonprobr/palavras/master/palavras.txt",
     "names": "https://raw.githubusercontent.com/smashew/NameDatabases/master/NamesDatabases/first%20names/us.txt",
     "surnames": "https://raw.githubusercontent.com/smashew/NameDatabases/master/NamesDatabases/surnames/us.txt",
     "pet": "https://raw.githubusercontent.com/jonathand-cf/wordlist-pets/refs/heads/main/pet-names.txt",
 }
 
-# Automatically add Hunspell dictionaries
+# Add Hunspell dictionaries as default for language codes
 for lang_code in HUNSPELL_DICT_URLS.keys():
-    WORD_URLS[f"hunspell-{lang_code}"] = f"hunspell:{lang_code}"
+    WORD_URLS[lang_code] = f"hunspell:{lang_code}"
 
 
 def parse_length(length_str):
