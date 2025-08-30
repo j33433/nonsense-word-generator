@@ -236,11 +236,6 @@ def test_error_cases():
         "python nonsense_generator.py --length=0-5",   # min < 1
         "python nonsense_generator.py --single --length=-1",
         "python nonsense_generator.py --markov --words=invalid_language",
-        "python nonsense_generator.py --order=3",  # order without --markov or --name
-        "python nonsense_generator.py --cutoff=0.05",  # cutoff without --markov or --name
-        "python nonsense_generator.py --words=es",  # words without --markov or --name
-        "python nonsense_generator.py --suffix=ing",  # suffix without --markov or --name
-        "python nonsense_generator.py --order=3 --cutoff=0.05 --words=fr",  # multiple markov options without --markov or --name
         "python nonsense_generator.py --name --words=es",  # --words with --name
     ]
     

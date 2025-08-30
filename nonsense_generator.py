@@ -48,6 +48,11 @@ def validate_args(args):
     Returns:
         tuple: (min_len, max_len) validated length parameters
     """
+    # Auto-enable Markov mode if Markov-specific options are used
+    if (args.order != 2 or args.cutoff != 0.1 or args.words != "en" or 
+        args.prefix or args.suffix):
+        args.markov = True
+    
     # Parse and validate length
     if args.length:
         try:
@@ -69,24 +74,6 @@ def validate_args(args):
             min_len, max_len = 6, 20
         else:
             min_len, max_len = 5, 12
-    
-    # Validate Markov-only options
-    if not args.markov and not args.name:
-        markov_options = []
-        if args.order != 2:
-            markov_options.append("--order")
-        if args.cutoff != 0.1:
-            markov_options.append("--cutoff")
-        if args.words != "en":
-            markov_options.append("--words")
-        if args.prefix:
-            markov_options.append("--prefix")
-        if args.suffix:
-            markov_options.append("--suffix")
-        
-        if markov_options:
-            print(f"Error: {', '.join(markov_options)} can only be used with --markov or --name")
-            exit(1)
     
     # Validate prefix/suffix mutual exclusivity
     if args.prefix and args.suffix:
@@ -189,13 +176,13 @@ def main():
     """Demo the generator."""
     parser = argparse.ArgumentParser(description="Generate nonsense words")
     parser.add_argument("--markov", action="store_true", 
-                       help="use Markov chain generator (default: syllable-based)")
+                       help="use Markov chain generator (default: syllable-based, auto-enabled by Markov options)")
     parser.add_argument("--order", type=int, default=2,
-                       help="Markov chain order (default: 2)")
+                       help="Markov chain order (default: 2, auto-enables Markov mode)")
     parser.add_argument("--cutoff", type=float, default=0.1,
-                       help="Markov minimum relative probability cutoff (default: 0.1)")
+                       help="Markov minimum relative probability cutoff (default: 0.1, auto-enables Markov mode)")
     parser.add_argument("--words", type=str, default="en", 
-                       help="Word list type (default: en) or custom URL [Markov only]")
+                       help="Word list type (default: en) or custom URL (auto-enables Markov mode)")
     parser.add_argument("--verbose", "-v", action="store_true",
                        help="print detailed initialization messages")
     parser.add_argument("--single", action="store_true",
@@ -211,9 +198,9 @@ def main():
     parser.add_argument("--count", type=int, default=None, metavar="N",
                        help="number of words/names to generate (default: 50 for batch, 1 for --name)")
     parser.add_argument("--prefix", type=str, metavar="PREFIX",
-                       help="start generated words with this prefix [Markov only]")
+                       help="start generated words with this prefix (auto-enables Markov mode)")
     parser.add_argument("--suffix", type=str, metavar="SUFFIX",
-                       help="end generated words with this suffix [Markov only]")
+                       help="end generated words with this suffix (auto-enables Markov mode)")
     parser.add_argument("--list", action="store_true",
                        help="list all available word lists and exit")
     
