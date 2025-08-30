@@ -239,6 +239,7 @@ def test_error_cases():
         "python nonsense_generator.py --order=3",  # order without --markov or --name
         "python nonsense_generator.py --cutoff=0.05",  # cutoff without --markov or --name
         "python nonsense_generator.py --words=es",  # words without --markov or --name
+        "python nonsense_generator.py --suffix=ing",  # suffix without --markov or --name
         "python nonsense_generator.py --order=3 --cutoff=0.05 --words=fr",  # multiple markov options without --markov or --name
         "python nonsense_generator.py --name --words=es",  # --words with --name
     ]
@@ -364,6 +365,106 @@ def test_prefix_functionality():
                 print(f"  PASS: {cmd} -> {len(result_lines)} results with prefix '{expected_prefix}'")
 
 
+def test_suffix_functionality():
+    """Test suffix functionality with Markov chains."""
+    print("\nTesting suffix functionality...")
+    
+    tests = [
+        ("python nonsense_generator.py --markov --suffix=ing --single", "ing"),
+        ("python nonsense_generator.py --markov --suffix=tion --single", "tion"),
+        ("python nonsense_generator.py --markov --suffix=ly --single", "ly"),
+        ("python nonsense_generator.py --markov --suffix=ed --single", "ed"),
+        ("python nonsense_generator.py --markov --words=names --suffix=son --single", "son"),
+        ("python nonsense_generator.py --markov --suffix=er --count=5", "er"),
+        ("python nonsense_generator.py --markov --suffix=ing --token", "ing"),
+        ("python nonsense_generator.py --name --suffix=ton", "ton"),
+    ]
+    
+    for cmd, expected_suffix in tests:
+        output, code = run_command(cmd)
+        if code != 0:
+            print(f"  FAIL: {cmd} (exit code {code})")
+            continue
+            
+        lines = output.strip().split('\n')
+        # Find the actual output (last non-verbose line)
+        result_lines = []
+        for line in lines:
+            if line.strip() and not line.startswith(('Initializing', 'Loading', 'Downloaded', 'Built', 'Loaded', 'Saved')):
+                result_lines.append(line.strip())
+        
+        if not result_lines:
+            print(f"  FAIL: {cmd} (no output found)")
+            continue
+            
+        all_valid = True
+        for line in result_lines:
+            if "--token" in cmd:
+                # For token mode, check each word in the token
+                words = line.split('-')
+                for word in words:
+                    if not word.lower().endswith(expected_suffix.lower()):
+                        print(f"  FAIL: {cmd} (word '{word}' doesn't end with '{expected_suffix}')")
+                        all_valid = False
+                        break
+            elif "--name" in cmd:
+                # For name mode, check first name only
+                parts = line.split(' ')
+                if len(parts) >= 1:
+                    first_name = parts[0].lower()
+                    if not first_name.endswith(expected_suffix.lower()):
+                        print(f"  FAIL: {cmd} (first name '{parts[0]}' doesn't end with '{expected_suffix}')")
+                        all_valid = False
+                else:
+                    print(f"  FAIL: {cmd} (invalid name format: '{line}')")
+                    all_valid = False
+            elif "--count=" in cmd:
+                # For batch mode, check each word
+                words = []
+                for batch_line in result_lines:
+                    row_words = [w.strip() for w in batch_line.split() if w.strip()]
+                    words.extend(row_words)
+                
+                for word in words:
+                    if not word.lower().endswith(expected_suffix.lower()):
+                        print(f"  FAIL: {cmd} (word '{word}' doesn't end with '{expected_suffix}')")
+                        all_valid = False
+                        break
+                break  # Only check once for batch mode
+            else:
+                # For single mode, check the word directly
+                if not line.lower().endswith(expected_suffix.lower()):
+                    print(f"  FAIL: {cmd} (word '{line}' doesn't end with '{expected_suffix}')")
+                    all_valid = False
+            
+            if not all_valid:
+                break
+                
+        if all_valid:
+            if len(result_lines) == 1:
+                print(f"  PASS: {cmd} -> '{result_lines[0]}'")
+            else:
+                print(f"  PASS: {cmd} -> {len(result_lines)} results with suffix '{expected_suffix}'")
+
+
+def test_prefix_suffix_mutual_exclusivity():
+    """Test that prefix and suffix cannot be used together."""
+    print("\nTesting prefix/suffix mutual exclusivity...")
+    
+    error_tests = [
+        "python nonsense_generator.py --markov --prefix=test --suffix=ing --single",
+        "python nonsense_generator.py --markov --prefix=cat --suffix=ly --count=5",
+        "python nonsense_generator.py --name --prefix=john --suffix=son",
+    ]
+    
+    for cmd in error_tests:
+        output, code = run_command(cmd)
+        if code == 0:
+            print(f"  FAIL: {cmd} (should have failed but didn't)")
+        else:
+            print(f"  PASS: {cmd} (correctly failed with exit code {code})")
+
+
 def test_length_ranges():
     """Test specific length ranges to verify min-max functionality."""
     print("\nTesting length ranges...")
@@ -444,6 +545,8 @@ def main():
     test_error_cases()
     test_markov_parameters()
     test_prefix_functionality()
+    test_suffix_functionality()
+    test_prefix_suffix_mutual_exclusivity()
     test_length_ranges()
     
     print("\n" + "=" * 50)

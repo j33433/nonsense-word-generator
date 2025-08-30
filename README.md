@@ -44,9 +44,35 @@ python nonsense_generator.py --markov --words=names --prefix=joe --order=2 --cou
 joemelynda    joessilbara   joela         joesty        joetherra
 joellena      joett         joelia        joell         joesanda
 
+# Words ending with common suffixes
+python nonsense_generator.py --markov --suffix=ing --count=10
+michroilling  bilizing      flantieroing  iedemotoming  shilecing   
+diselfing     unseding      difying       parbing       scelobisping
+
+python nonsense_generator.py --markov --suffix=tion --count=5
+augation      taniereation  amition       demication    mangablotion
+
 # List all available word sources
 python nonsense_generator.py --list
+Basic word lists:
+  de
+  en
+  es
+  fr
+  it
+  names
+  pet
+  pt
+  surnames
 
+Hunspell dictionaries (higher quality, morphologically aware):
+  hunspell-ar (ar)
+  hunspell-be (be)
+  hunspell-bg (bg)
+  hunspell-ca (ca)
+  hunspell-cs (cs)
+  ...
+ 
 # Syllable-based simple algorithm
 python nonsense_generator.py --single
 stearnthep
@@ -88,6 +114,12 @@ manize-misation-unequist
 - Start generated words with a specific prefix
 - Only works with Markov chains (`--markov` or `--name`)
 - Example: `--prefix=steve` generates words like "stevenson", "stevie"
+
+**Suffix (`--suffix`)**
+- End generated words with a specific suffix
+- Only works with Markov chains (`--markov` or `--name`)
+- Mutually exclusive with `--prefix`
+- Example: `--suffix=ing` generates words like "processing", "marketing"
 
 ## Python API
 

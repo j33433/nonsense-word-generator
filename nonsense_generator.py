@@ -10,9 +10,6 @@ from hunspell import HUNSPELL_DICT_URLS
 
 def list_word_sources():
     """List all available word sources."""
-    print("Available word lists:")
-    print()
-    
     print("Basic word lists:")
     basic_lists = {k: v for k, v in WORD_URLS.items() if not k.startswith("hunspell-")}
     for name in sorted(basic_lists.keys()):
@@ -76,10 +73,17 @@ def validate_args(args):
             markov_options.append("--words")
         if args.prefix:
             markov_options.append("--prefix")
+        if args.suffix:
+            markov_options.append("--suffix")
         
         if markov_options:
             print(f"Error: {', '.join(markov_options)} can only be used with --markov or --name")
             exit(1)
+    
+    # Validate prefix/suffix mutual exclusivity
+    if args.prefix and args.suffix:
+        print("Error: --prefix and --suffix cannot be used together")
+        exit(1)
     
     # Validate word source
     if args.words.startswith(('http://', 'https://')):
@@ -107,33 +111,46 @@ def generate_words(args):
     if args.markov or args.name:
         if args.verbose:
             print("Initializing Markov chain generator...")
+        
+        # Determine if we need reverse mode for suffix generation
+        reverse_mode = bool(args.suffix)
+        
         if args.name:
-            first_gen = MarkovWordGenerator(order=args.order, cutoff=args.cutoff, verbose=args.verbose, words="names")
-            last_gen = MarkovWordGenerator(order=args.order, cutoff=args.cutoff, verbose=args.verbose, words="surnames")
+            first_gen = MarkovWordGenerator(order=args.order, cutoff=args.cutoff, verbose=args.verbose, words="names", reverse_mode=reverse_mode)
+            last_gen = MarkovWordGenerator(order=args.order, cutoff=args.cutoff, verbose=args.verbose, words="surnames", reverse_mode=reverse_mode)
             gen = (first_gen, last_gen)
         else:
-            gen = MarkovWordGenerator(order=args.order, cutoff=args.cutoff, verbose=args.verbose, words=args.words)
+            gen = MarkovWordGenerator(order=args.order, cutoff=args.cutoff, verbose=args.verbose, words=args.words, reverse_mode=reverse_mode)
     else:
         if args.verbose:
             print("Initializing syllable-based generator...")
         gen = SyllableWordGenerator()
     
     if args.single:
-        word = gen.generate(min_len, max_len, prefix=args.prefix)
+        if isinstance(gen, MarkovWordGenerator):
+            word = gen.generate(min_len, max_len, prefix=args.prefix, suffix=args.suffix)
+        else:
+            word = gen.generate(min_len, max_len, prefix=args.prefix)
         print(word)
     elif args.token:
         for _ in range(args.count):
-            words = gen.generate_batch(3, min_len, max_len, prefix=args.prefix)
+            if isinstance(gen, MarkovWordGenerator):
+                words = gen.generate_batch(3, min_len, max_len, prefix=args.prefix, suffix=args.suffix)
+            else:
+                words = gen.generate_batch(3, min_len, max_len, prefix=args.prefix)
             token = "-".join(words)
             print(token)
     elif args.name:
         first_gen, last_gen = gen
         for _ in range(args.count):
-            first_name = first_gen.generate(min_len, max_len, prefix=args.prefix).capitalize()
+            first_name = first_gen.generate(min_len, max_len, prefix=args.prefix, suffix=args.suffix).capitalize()
             last_name = last_gen.generate(min_len, max_len).capitalize()
             print(f"{first_name} {last_name}")
     else:
-        words = gen.generate_batch(args.count, min_len, max_len, prefix=args.prefix)
+        if isinstance(gen, MarkovWordGenerator):
+            words = gen.generate_batch(args.count, min_len, max_len, prefix=args.prefix, suffix=args.suffix)
+        else:
+            words = gen.generate_batch(args.count, min_len, max_len, prefix=args.prefix)
         max_width = max(max(len(word) for word in words), 12)
         for i in range(0, len(words), 5):
             row = words[i:i+5]
@@ -167,6 +184,8 @@ def main():
                        help="number of words/names to generate (default: 50 for batch, 1 for --name)")
     parser.add_argument("--prefix", type=str, metavar="PREFIX",
                        help="start generated words with this prefix [Markov only]")
+    parser.add_argument("--suffix", type=str, metavar="SUFFIX",
+                       help="end generated words with this suffix [Markov only]")
     parser.add_argument("--list", action="store_true",
                        help="list all available word lists and exit")
     
