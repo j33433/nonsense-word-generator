@@ -142,9 +142,22 @@ def parse_hunspell_dic(file_path, expand_morphology=True):
     Raises:
         RuntimeError: If the file cannot be read or parsed
     """
+    # Try multiple encodings as Hunspell dictionaries can use different encodings
+    encodings_to_try = ['utf-8', 'iso-8859-1', 'cp1252', 'utf-8-sig']
+    
+    lines = None
+    for encoding in encodings_to_try:
+        try:
+            with open(file_path, 'r', encoding=encoding) as f:
+                lines = f.readlines()
+            break
+        except UnicodeDecodeError:
+            continue
+    
+    if lines is None:
+        raise RuntimeError(f"Could not decode file {file_path} with any of the tried encodings: {encodings_to_try}")
+    
     try:
-        with open(file_path, 'r', encoding='utf-8') as f:
-            lines = f.readlines()
         
         if not lines:
             raise RuntimeError(f"Empty dictionary file: {file_path}")
@@ -155,8 +168,17 @@ def parse_hunspell_dic(file_path, expand_morphology=True):
             aff_path = file_path.replace('.dic', '.aff')
             if os.path.exists(aff_path):
                 try:
-                    with open(aff_path, 'r', encoding='utf-8') as aff_file:
-                        aff_content = aff_file.read()
+                    # Try the same encodings for .aff file
+                    aff_content = None
+                    for encoding in encodings_to_try:
+                        try:
+                            with open(aff_path, 'r', encoding=encoding) as aff_file:
+                                aff_content = aff_file.read()
+                            break
+                        except UnicodeDecodeError:
+                            continue
+                    
+                    if aff_content:
                         affix_rules = parse_affix_rules(aff_content)
                 except Exception:
                     # If affix parsing fails, continue without morphology
@@ -267,67 +289,47 @@ def download_hunspell_dict(url, cache_dir="cache", lang_code=None):
 
 
 HUNSPELL_DICT_URLS = {
-    "ar": "https://raw.githubusercontent.com/titoBouzout/Dictionaries/master/Arabic.dic",
-    "hy-east": "https://raw.githubusercontent.com/titoBouzout/Dictionaries/master/Armenian%20(Eastern).dic",
-    "hy-west": "https://raw.githubusercontent.com/titoBouzout/Dictionaries/master/Armenian%20(Western).dic",
-    "eu": "https://raw.githubusercontent.com/titoBouzout/Dictionaries/master/Basque.dic",
-    "be": "https://raw.githubusercontent.com/titoBouzout/Dictionaries/master/be-official.dic",
-    "bg": "https://raw.githubusercontent.com/titoBouzout/Dictionaries/master/Bulgarian.dic",
-    "ca": "https://raw.githubusercontent.com/titoBouzout/Dictionaries/master/Catalan.dic",
-    "hr": "https://raw.githubusercontent.com/titoBouzout/Dictionaries/master/Croatian.dic",
-    "cs": "https://raw.githubusercontent.com/titoBouzout/Dictionaries/master/Czech.dic",
-    "da": "https://raw.githubusercontent.com/titoBouzout/Dictionaries/master/Danish.dic",
-    "nl": "https://raw.githubusercontent.com/titoBouzout/Dictionaries/master/Dutch.dic",
-    "en": "https://raw.githubusercontent.com/titoBouzout/Dictionaries/master/English%20(American).dic",
-    "en-au": "https://raw.githubusercontent.com/titoBouzout/Dictionaries/master/English%20(Australian).dic",
-    "en-gb": "https://raw.githubusercontent.com/titoBouzout/Dictionaries/master/English%20(British).dic",
-    "en-ca": "https://raw.githubusercontent.com/titoBouzout/Dictionaries/master/English%20(Canadian).dic",
-    "en-nz": "https://raw.githubusercontent.com/titoBouzout/Dictionaries/master/English%20(New%20Zealand).dic",
-    "en-za": "https://raw.githubusercontent.com/titoBouzout/Dictionaries/master/English%20(South%20African).dic",
-    "et": "https://raw.githubusercontent.com/titoBouzout/Dictionaries/master/Estonian.dic",
-    "fr": "https://raw.githubusercontent.com/titoBouzout/Dictionaries/master/French.dic",
-    "gl": "https://raw.githubusercontent.com/titoBouzout/Dictionaries/master/Galego.dic",
-    "de-at": "https://raw.githubusercontent.com/titoBouzout/Dictionaries/master/German_de_AT.dic",
-    "de-ch": "https://raw.githubusercontent.com/titoBouzout/Dictionaries/master/German_de_CH.dic",
-    "de": "https://raw.githubusercontent.com/titoBouzout/Dictionaries/master/German_de_DE.dic",
-    "de-old": "https://raw.githubusercontent.com/titoBouzout/Dictionaries/master/German_de_DE_OLDSPELL.dic",
-    "el": "https://raw.githubusercontent.com/titoBouzout/Dictionaries/master/Greek.dic",
-    "he": "https://raw.githubusercontent.com/titoBouzout/Dictionaries/master/Hebrew%20(Israel).dic",
-    "hu": "https://raw.githubusercontent.com/titoBouzout/Dictionaries/master/Hungarian.dic",
-    "is": "https://raw.githubusercontent.com/titoBouzout/Dictionaries/master/Icelandic.dic",
-    "id": "https://raw.githubusercontent.com/titoBouzout/Dictionaries/master/Indonesia.dic",
-    "it": "https://raw.githubusercontent.com/titoBouzout/Dictionaries/master/Italian.dic",
-    "ko": "https://raw.githubusercontent.com/titoBouzout/Dictionaries/master/Korean.dic",
-    "la": "https://raw.githubusercontent.com/titoBouzout/Dictionaries/master/la.dic",
-    "lv": "https://raw.githubusercontent.com/titoBouzout/Dictionaries/master/Latvian.dic",
-    "lt": "https://raw.githubusercontent.com/titoBouzout/Dictionaries/master/Lithuanian.dic",
-    "lb": "https://raw.githubusercontent.com/titoBouzout/Dictionaries/master/Luxembourgish.dic",
-    "ms": "https://raw.githubusercontent.com/titoBouzout/Dictionaries/master/Malays.dic",
-    "mn": "https://raw.githubusercontent.com/titoBouzout/Dictionaries/master/Mongolian.dic",
-    "no": "https://raw.githubusercontent.com/titoBouzout/Dictionaries/master/Norwegian%20(Bokmal).dic",
-    "nn": "https://raw.githubusercontent.com/titoBouzout/Dictionaries/master/Norwegian%20(Nynorsk).dic",
-    "oc": "https://raw.githubusercontent.com/titoBouzout/Dictionaries/master/Occitan%20(France).dic",
-    "fa": "https://raw.githubusercontent.com/titoBouzout/Dictionaries/master/Persian.dic",
-    "pl": "https://raw.githubusercontent.com/titoBouzout/Dictionaries/master/Polish.dic",
-    "pt-br": "https://raw.githubusercontent.com/titoBouzout/Dictionaries/master/Portuguese%20(Brazilian).dic",
-    "pt-old": "https://raw.githubusercontent.com/titoBouzout/Dictionaries/master/Portuguese%20(European%20-%20Before%20OA%201990).dic",
-    "pt": "https://raw.githubusercontent.com/titoBouzout/Dictionaries/master/Portuguese%20(European).dic",
-    "ro-old": "https://raw.githubusercontent.com/titoBouzout/Dictionaries/master/Romanian%20(Ante1993).dic",
-    "ro": "https://raw.githubusercontent.com/titoBouzout/Dictionaries/master/Romanian%20(Modern).dic",
-    "ru": "https://raw.githubusercontent.com/titoBouzout/Dictionaries/master/Russian.dic",
-    "ru-en": "https://raw.githubusercontent.com/titoBouzout/Dictionaries/master/Russian-English%20Bilingual.dic",
-    "ru-old": "https://raw.githubusercontent.com/titoBouzout/Dictionaries/master/ru_petr1708.dic",
-    "sr-cyrl": "https://raw.githubusercontent.com/titoBouzout/Dictionaries/master/Serbian%20(Cyrillic).dic",
-    "sr": "https://raw.githubusercontent.com/titoBouzout/Dictionaries/master/Serbian%20(Latin).dic",
-    "sk": "https://raw.githubusercontent.com/titoBouzout/Dictionaries/master/Slovak_sk_SK.dic",
-    "sl": "https://raw.githubusercontent.com/titoBouzout/Dictionaries/master/Slovenian.dic",
-    "es": "https://raw.githubusercontent.com/titoBouzout/Dictionaries/master/Spanish.dic",
-    "sv": "https://raw.githubusercontent.com/titoBouzout/Dictionaries/master/Swedish.dic",
-    "tok": "https://raw.githubusercontent.com/titoBouzout/Dictionaries/master/tokipona_tok.dic",
-    "tr": "https://raw.githubusercontent.com/titoBouzout/Dictionaries/master/Turkish.dic",
-    "uk": "https://raw.githubusercontent.com/titoBouzout/Dictionaries/master/Ukrainian_uk_UA.dic",
-    "vi": "https://raw.githubusercontent.com/titoBouzout/Dictionaries/master/Vietnamese_vi_VN.dic",
-    "cy": "https://raw.githubusercontent.com/titoBouzout/Dictionaries/master/Welsh.dic",
+    "ar": "https://raw.githubusercontent.com/LibreOffice/dictionaries/refs/heads/master/ar/ar.dic",
+    "bg": "https://raw.githubusercontent.com/LibreOffice/dictionaries/refs/heads/master/bg_BG/bg_BG.dic",
+    "ca": "https://raw.githubusercontent.com/LibreOffice/dictionaries/refs/heads/master/ca/dictionaries/ca.dic",
+    "cs": "https://raw.githubusercontent.com/LibreOffice/dictionaries/refs/heads/master/cs_CZ/cs_CZ.dic",
+    "da": "https://raw.githubusercontent.com/LibreOffice/dictionaries/refs/heads/master/da_DK/da_DK.dic",
+    "de": "https://raw.githubusercontent.com/LibreOffice/dictionaries/refs/heads/master/de/de_DE_frami.dic",
+    "el": "https://raw.githubusercontent.com/LibreOffice/dictionaries/refs/heads/master/el_GR/el_GR.dic",
+    "en": "https://raw.githubusercontent.com/LibreOffice/dictionaries/refs/heads/master/en/en_US.dic",
+    "en-gb": "https://raw.githubusercontent.com/LibreOffice/dictionaries/refs/heads/master/en/en_GB.dic",
+    "en-au": "https://raw.githubusercontent.com/LibreOffice/dictionaries/refs/heads/master/en/en_AU.dic",
+    "en-ca": "https://raw.githubusercontent.com/LibreOffice/dictionaries/refs/heads/master/en/en_CA.dic",
+    "en-za": "https://raw.githubusercontent.com/LibreOffice/dictionaries/refs/heads/master/en/en_ZA.dic",
+    "es": "https://raw.githubusercontent.com/LibreOffice/dictionaries/refs/heads/master/es/es_ES.dic",
+    "et": "https://raw.githubusercontent.com/LibreOffice/dictionaries/refs/heads/master/et_EE/et_EE.dic",
+    "fr": "https://raw.githubusercontent.com/LibreOffice/dictionaries/refs/heads/master/fr_FR/fr.dic",
+    "gl": "https://raw.githubusercontent.com/LibreOffice/dictionaries/refs/heads/master/gl/gl_ES.dic",
+    "he": "https://raw.githubusercontent.com/LibreOffice/dictionaries/refs/heads/master/he_IL/he_IL.dic",
+    "hr": "https://raw.githubusercontent.com/LibreOffice/dictionaries/refs/heads/master/hr_HR/hr_HR.dic",
+    "hu": "https://raw.githubusercontent.com/LibreOffice/dictionaries/refs/heads/master/hu_HU/hu_HU.dic",
+    "id": "https://raw.githubusercontent.com/LibreOffice/dictionaries/refs/heads/master/id/id_ID.dic",
+    "is": "https://raw.githubusercontent.com/LibreOffice/dictionaries/refs/heads/master/is/is.dic",
+    "it": "https://raw.githubusercontent.com/LibreOffice/dictionaries/refs/heads/master/it_IT/it_IT.dic",
+    "ko": "https://raw.githubusercontent.com/LibreOffice/dictionaries/refs/heads/master/ko_KR/ko_KR.dic",
+    "lt": "https://raw.githubusercontent.com/LibreOffice/dictionaries/refs/heads/master/lt_LT/lt.dic",
+    "lv": "https://raw.githubusercontent.com/LibreOffice/dictionaries/refs/heads/master/lv_LV/lv_LV.dic",
+    "nl": "https://raw.githubusercontent.com/LibreOffice/dictionaries/refs/heads/master/nl_NL/nl_NL.dic",
+    "no": "https://raw.githubusercontent.com/LibreOffice/dictionaries/refs/heads/master/no/nb_NO.dic",
+    "nn": "https://raw.githubusercontent.com/LibreOffice/dictionaries/refs/heads/master/no/nn_NO.dic",
+    "pl": "https://raw.githubusercontent.com/LibreOffice/dictionaries/refs/heads/master/pl_PL/pl_PL.dic",
+    "pt": "https://raw.githubusercontent.com/LibreOffice/dictionaries/refs/heads/master/pt_PT/pt_PT.dic",
+    "pt-br": "https://raw.githubusercontent.com/LibreOffice/dictionaries/refs/heads/master/pt_BR/pt_BR.dic",
+    "ro": "https://raw.githubusercontent.com/LibreOffice/dictionaries/refs/heads/master/ro/ro_RO.dic",
+    "ru": "https://raw.githubusercontent.com/LibreOffice/dictionaries/refs/heads/master/ru_RU/ru_RU.dic",
+    "sk": "https://raw.githubusercontent.com/LibreOffice/dictionaries/refs/heads/master/sk_SK/sk_SK.dic",
+    "sl": "https://raw.githubusercontent.com/LibreOffice/dictionaries/refs/heads/master/sl_SI/sl_SI.dic",
+    "sr": "https://raw.githubusercontent.com/LibreOffice/dictionaries/refs/heads/master/sr/sr-Latn.dic",
+    "sv": "https://raw.githubusercontent.com/LibreOffice/dictionaries/refs/heads/master/sv_SE/sv_SE.dic",
+    "th": "https://raw.githubusercontent.com/LibreOffice/dictionaries/refs/heads/master/th_TH/th_TH.dic",
+    "tr": "https://raw.githubusercontent.com/LibreOffice/dictionaries/refs/heads/master/tr_TR/tr_TR.dic",
+    "uk": "https://raw.githubusercontent.com/LibreOffice/dictionaries/refs/heads/master/uk_UA/uk_UA.dic",
+    "vi": "https://raw.githubusercontent.com/LibreOffice/dictionaries/refs/heads/master/vi/vi_VN.dic",
 }
 
 

@@ -460,6 +460,48 @@ def test_prefix_suffix_mutual_exclusivity():
             print(f"  PASS: {cmd} (correctly failed with exit code {code})")
 
 
+def test_all_languages():
+    """Test word generation with all available Hunspell language dictionaries."""
+    print("\nTesting all Hunspell languages...")
+    
+    # Get list of available languages from hunspell.py
+    import sys
+    import os
+    sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+    from hunspell import HUNSPELL_DICT_URLS
+    
+    # Test a subset of languages to keep test time reasonable
+    # Include some that are known to have encoding issues
+    test_languages = [
+        "en", "es", "fr", "de", "it", "pt", "nl", "pl", "ru", "cs", "da", "sv"
+    ]
+    
+    for lang in test_languages:
+        if lang not in HUNSPELL_DICT_URLS:
+            print(f"  SKIP: {lang} (not in available languages)")
+            continue
+            
+        cmd = f"python nonsense_generator.py --markov --words={lang} --single --length=5-8"
+        output, code = run_command(cmd)
+        
+        if code != 0:
+            print(f"  FAIL: {lang} (exit code {code})")
+            continue
+            
+        lines = output.strip().split('\n')
+        # Find the actual word (last non-verbose line)
+        word_line = None
+        for line in reversed(lines):
+            if line.strip() and not line.startswith(('Initializing', 'Loading', 'Downloaded', 'Built', 'Loaded', 'Saved', 'Downloading', 'Parsing')):
+                word_line = line.strip()
+                break
+        
+        if word_line and word_line.isalpha() and 5 <= len(word_line) <= 8:
+            print(f"  PASS: {lang} -> '{word_line}' (len={len(word_line)})")
+        else:
+            print(f"  FAIL: {lang} (no valid word found: '{word_line}')")
+
+
 def test_length_ranges():
     """Test specific length ranges to verify min-max functionality."""
     print("\nTesting length ranges...")
@@ -543,6 +585,7 @@ def main():
     test_suffix_functionality()
     test_prefix_suffix_mutual_exclusivity()
     test_length_ranges()
+    test_all_languages()
     
     print("\n" + "=" * 50)
     print("Testing complete!")
