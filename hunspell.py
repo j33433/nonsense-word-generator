@@ -312,6 +312,7 @@ HUNSPELL_DICT_URLS = {
     "is": "https://raw.githubusercontent.com/LibreOffice/dictionaries/refs/heads/master/is/is.dic",
     "it": "https://raw.githubusercontent.com/LibreOffice/dictionaries/refs/heads/master/it_IT/it_IT.dic",
     "ko": "https://raw.githubusercontent.com/LibreOffice/dictionaries/refs/heads/master/ko_KR/ko_KR.dic",
+    "la": "https://raw.githubusercontent.com/titoBouzout/Dictionaries/refs/heads/master/la.dic",
     "lt": "https://raw.githubusercontent.com/LibreOffice/dictionaries/refs/heads/master/lt_LT/lt.dic",
     "lv": "https://raw.githubusercontent.com/LibreOffice/dictionaries/refs/heads/master/lv_LV/lv_LV.dic",
     "nl": "https://raw.githubusercontent.com/LibreOffice/dictionaries/refs/heads/master/nl_NL/nl_NL.dic",
