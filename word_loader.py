@@ -2,6 +2,7 @@
 
 import os
 import urllib.request
+import urllib.parse
 from hunspell import get_hunspell_words, HUNSPELL_DICT_URLS
 from cache_manager import CacheManager
 
@@ -50,6 +51,46 @@ def is_url(text):
     return text.startswith(('http://', 'https://'))
 
 
+def is_safe_url(url):
+    """Check if URL is safe to download from.
+    
+    Args:
+        url: URL to validate
+        
+    Returns:
+        bool: True if URL is considered safe
+    """
+    try:
+        parsed = urllib.parse.urlparse(url)
+        
+        # Only allow http/https
+        if parsed.scheme not in ('http', 'https'):
+            return False
+        
+        # Block private/local networks
+        hostname = parsed.hostname
+        if not hostname:
+            return False
+        
+        # Block localhost and private IPs
+        if hostname.lower() in ('localhost', '127.0.0.1', '::1'):
+            return False
+        
+        # Block private IP ranges (basic check)
+        if (hostname.startswith('192.168.') or 
+            hostname.startswith('10.') or 
+            hostname.startswith('172.')):
+            return False
+        
+        # Block file:// and other schemes
+        if parsed.scheme not in ('http', 'https'):
+            return False
+            
+        return True
+    except Exception:
+        return False
+
+
 def load_words(word_source, verbose=False, cache_manager=None):
     """Load words from any source (URL, Hunspell, basic word lists).
     
@@ -80,6 +121,8 @@ def load_words(word_source, verbose=False, cache_manager=None):
     
     # Determine URL and cache info
     if is_url(word_source):
+        if not is_safe_url(word_source):
+            raise ValueError(f"Unsafe URL: {word_source}")
         url = word_source
         display_name = f"custom URL ({url})"
         url_hash = cache_manager.get_url_hash(url)
@@ -132,6 +175,10 @@ def _download_word_file(url, target_path):
     Raises:
         RuntimeError: If download fails
     """
+    # Additional safety check
+    if not is_safe_url(url):
+        raise RuntimeError(f"Unsafe URL blocked: {url}")
+    
     os.makedirs(os.path.dirname(target_path), exist_ok=True)
     
     temp_file = target_path + ".tmp"
@@ -141,7 +188,29 @@ def _download_word_file(url, target_path):
         if os.path.exists(temp_file):
             os.remove(temp_file)
         
-        urllib.request.urlretrieve(url, temp_file)
+        # Create request with timeout and size limits
+        request = urllib.request.Request(url)
+        request.add_header('User-Agent', 'nonsense-word-generator/1.0')
+        
+        with urllib.request.urlopen(request, timeout=30) as response:
+            # Check content length
+            content_length = response.headers.get('Content-Length')
+            if content_length and int(content_length) > 50 * 1024 * 1024:  # 50MB limit
+                raise RuntimeError("File too large (>50MB)")
+            
+            # Download with size limit
+            max_size = 50 * 1024 * 1024  # 50MB
+            downloaded = 0
+            
+            with open(temp_file, 'wb') as f:
+                while True:
+                    chunk = response.read(8192)
+                    if not chunk:
+                        break
+                    downloaded += len(chunk)
+                    if downloaded > max_size:
+                        raise RuntimeError("File too large (>50MB)")
+                    f.write(chunk)
         
         # Verify download
         if os.path.getsize(temp_file) == 0:

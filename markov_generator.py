@@ -1,6 +1,8 @@
 """Markov chain-based nonsense word generator."""
 
+import sys
 import secrets
+import copy
 from collections import defaultdict, Counter
 from cache_manager import CacheManager
 from word_loader import load_words, WORD_URLS
@@ -26,6 +28,8 @@ class MarkovWordGenerator:
         self.reverse_mode = reverse_mode
         self.chains = defaultdict(Counter)
         self.start_chains = Counter()
+        self._template_chains = None
+        self._template_start_chains = None
         self.cache_manager = CacheManager()
         
         # Generate cache key
@@ -47,7 +51,7 @@ class MarkovWordGenerator:
             **kwargs: Keyword arguments to pass to print()
         """
         if self.verbose:
-            print(*args, **kwargs)
+            print(*args, **kwargs, file=sys.stderr)
 
     def _process_word_for_chains(self, word):
         """Process a single word to build Markov chains.
@@ -91,6 +95,7 @@ class MarkovWordGenerator:
                 self._vprint(f"Processed {word_count} words...")
         
         self._vprint(f"Built Markov chains with {len(self.chains)} states from {word_count} words")
+        self._create_templates()
         self._save_chains()
 
     def _load_or_build_chains(self):
@@ -107,7 +112,6 @@ class MarkovWordGenerator:
         cache_data = {
             'chains': dict(self.chains),
             'start_chains': self.start_chains,
-            'word_set': self.word_set,
             'order': self.order,
             'reverse_mode': self.reverse_mode,
             'word_count': len(self.word_set)
@@ -116,7 +120,17 @@ class MarkovWordGenerator:
         if self.cache_manager.save_data(self.cache_file, cache_data):
             self._vprint(f"Saved chains to cache: {self.cache_file}")
         else:
-            print("Warning: Could not save cache")
+            self._vprint("Warning: Could not save cache")
+
+    def _create_templates(self):
+        """Create readonly template copies of the chains for fresh generation."""
+        # No need for templates - chains are stateless probability tables
+        pass
+
+    def _reset_chains(self):
+        """Reset chains to fresh template state."""
+        # No need to reset - each generation starts fresh from start_chains
+        pass
 
     def _load_chains(self):
         """Load chains from cache."""
@@ -134,8 +148,12 @@ class MarkovWordGenerator:
             self.chains[key] = counter
         
         self.start_chains = cache_data['start_chains']
-        self.word_set = cache_data['word_set']
         
+        # Load word set fresh from word_loader (it's already cached there)
+        from word_loader import load_words
+        self.word_set = load_words(self.word_list_type, verbose=False, cache_manager=self.cache_manager)
+        
+        self._create_templates()
         self._vprint(f"Loaded {len(self.chains)} chain states from cache")
         self._vprint(f"Using {cache_data['word_count']} cached training words")
 
@@ -224,6 +242,7 @@ class MarkovWordGenerator:
         
         # Try generating words, with simple fallback after half the retries
         for retry in range(max_retries):
+            # Always start fresh from start_chains - no need to reset entire chain state
             current = self._weighted_choice(self.start_chains)
             word = ""
             

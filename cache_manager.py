@@ -1,8 +1,9 @@
 """Shared caching functionality for word generators."""
 
 import os
-import pickle
+import json
 import hashlib
+import re
 
 
 class CacheManager:
@@ -17,7 +18,7 @@ class CacheManager:
         self.cache_dir = cache_dir
         os.makedirs(cache_dir, exist_ok=True)
     
-    def get_cache_path(self, cache_key, extension=".pkl"):
+    def get_cache_path(self, cache_key, extension=".json"):
         """Get the full path for a cache file.
         
         Args:
@@ -27,7 +28,10 @@ class CacheManager:
         Returns:
             str: Full path to cache file
         """
-        return os.path.join(self.cache_dir, f"{cache_key}{extension}")
+        # Sanitize cache_key to prevent path traversal
+        safe_key = re.sub(r'[^\w\-_.]', '_', cache_key)
+        safe_key = safe_key.replace('..', '_')
+        return os.path.join(self.cache_dir, f"{safe_key}{extension}")
     
     def should_rebuild(self, cache_path, source_path=None):
         """Check if cache needs to be rebuilt.
@@ -60,8 +64,10 @@ class CacheManager:
             bool: True if save succeeded
         """
         try:
-            with open(cache_path, 'wb') as f:
-                pickle.dump(data, f)
+            # Convert Counter objects to regular dicts for JSON serialization
+            serializable_data = self._make_serializable(data)
+            with open(cache_path, 'w', encoding='utf-8') as f:
+                json.dump(serializable_data, f)
             return True
         except Exception:
             return False
@@ -76,8 +82,10 @@ class CacheManager:
             Data from cache file, or None if loading failed
         """
         try:
-            with open(cache_path, 'rb') as f:
-                return pickle.load(f)
+            with open(cache_path, 'r', encoding='utf-8') as f:
+                data = json.load(f)
+            # Convert back to Counter objects if needed
+            return self._restore_counters(data)
         except Exception:
             return None
     
@@ -91,3 +99,50 @@ class CacheManager:
             str: Hash of the URL
         """
         return hashlib.md5(url.encode()).hexdigest()
+    
+    def _make_serializable(self, data):
+        """Convert data to JSON-serializable format.
+        
+        Args:
+            data: Data that may contain Counter objects
+            
+        Returns:
+            JSON-serializable version of data
+        """
+        if isinstance(data, dict):
+            result = {}
+            for key, value in data.items():
+                if hasattr(value, 'items'):  # Counter or dict
+                    result[key] = dict(value)
+                elif isinstance(value, set):
+                    result[key] = list(value)
+                else:
+                    result[key] = value
+            return result
+        elif isinstance(data, set):
+            return list(data)
+        return data
+    
+    def _restore_counters(self, data):
+        """Restore Counter objects from JSON data.
+        
+        Args:
+            data: Data loaded from JSON
+            
+        Returns:
+            Data with Counter objects restored
+        """
+        from collections import Counter, defaultdict
+        
+        if isinstance(data, dict) and 'chains' in data:
+            # This is Markov chain data
+            restored = data.copy()
+            if 'chains' in restored:
+                chains = defaultdict(Counter)
+                for key, counter_dict in restored['chains'].items():
+                    chains[key] = Counter(counter_dict)
+                restored['chains'] = chains
+            if 'start_chains' in restored:
+                restored['start_chains'] = Counter(restored['start_chains'])
+            return restored
+        return data

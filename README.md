@@ -57,7 +57,6 @@ python nonsense_generator.py --list
 Language dictionaries (Hunspell - high quality, morphologically aware):
   ar
   be
-  bg
   ca
   cs
   cy
@@ -67,7 +66,7 @@ Special word lists:
   names
   pet
   surnames
- 
+
 # Syllable-based simple algorithm
 python nonsense_generator.py --single
 stearnthep

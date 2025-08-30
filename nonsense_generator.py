@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """Nonsense word generator using Markov chains or syllable-based generation."""
 
+import sys
 import argparse
 from syllable_generator import SyllableWordGenerator
 from markov_generator import MarkovWordGenerator
@@ -117,7 +118,7 @@ def generate_words(args):
     
     if args.markov or args.name:
         if args.verbose:
-            print("Initializing Markov chain generator...")
+            print("Initializing Markov chain generator...", file=sys.stderr)
         
         # Determine if we need reverse mode for suffix generation
         reverse_mode = bool(args.suffix)
@@ -130,7 +131,7 @@ def generate_words(args):
             gen = MarkovWordGenerator(order=args.order, cutoff=args.cutoff, verbose=args.verbose, words=args.words, reverse_mode=reverse_mode)
     else:
         if args.verbose:
-            print("Initializing syllable-based generator...")
+            print("Initializing syllable-based generator...", file=sys.stderr)
         gen = SyllableWordGenerator()
     
     if args.single:
@@ -152,6 +153,9 @@ def generate_words(args):
         for _ in range(args.count):
             # Generate names with retry logic to ensure length constraints are met
             max_retries = 50
+            best_first = ""
+            best_last = ""
+            
             for retry in range(max_retries):
                 first_name = first_gen.generate(min_len, max_len, prefix=args.prefix, suffix=args.suffix).capitalize()
                 last_name = last_gen.generate(min_len, max_len).capitalize()
@@ -161,9 +165,15 @@ def generate_words(args):
                     min_len <= len(last_name) <= max_len):
                     print(f"{first_name} {last_name}")
                     break
+                    
+                # Keep track of best candidates for fallback
+                if not best_first or abs(len(first_name) - (min_len + max_len) // 2) < abs(len(best_first) - (min_len + max_len) // 2):
+                    best_first = first_name
+                if not best_last or abs(len(last_name) - (min_len + max_len) // 2) < abs(len(best_last) - (min_len + max_len) // 2):
+                    best_last = last_name
             else:
-                # Fallback if we can't generate valid names within constraints
-                print(f"{first_name} {last_name}")
+                # Fallback with best candidates that are closest to target length
+                print(f"{best_first} {best_last}")
     else:
         if isinstance(gen, MarkovWordGenerator):
             words = gen.generate_batch(args.count, min_len, max_len, prefix=args.prefix, suffix=args.suffix)
