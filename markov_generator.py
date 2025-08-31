@@ -277,7 +277,18 @@ class MarkovWordGenerator:
                 if next_char != "$":
                     current = current[1:] + next_char
         
-        return "word"  # Fallback
+        # Print helpful error message and exit
+        print(f"Error: Could not generate a valid word after {max_retries} attempts.", file=sys.stderr)
+        print(f"Try adjusting parameters:", file=sys.stderr)
+        print(f"  - Decrease --cutoff (current: {self.cutoff}) to allow more character transitions", file=sys.stderr)
+        print(f"  - Try a lower --order (current: {self.order}) for more flexibility", file=sys.stderr)
+        print(f"  - Widen length range (current: {min_len}-{max_len})", file=sys.stderr)
+        print(f"  - Try a different word list (current: {self.word_list_type})", file=sys.stderr)
+        if prefix:
+            print(f"  - Use a shorter or different prefix (current: '{prefix}')", file=sys.stderr)
+        if suffix:
+            print(f"  - Use a shorter or different suffix (current: '{suffix}')", file=sys.stderr)
+        sys.exit(1)
 
     def generate_with_prefix(self, prefix, min_len=3, max_len=10, max_retries=200):
         """Generate a single word starting with the given prefix using the Markov chain.
