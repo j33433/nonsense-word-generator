@@ -321,12 +321,14 @@ def test_prefix_functionality():
                         all_valid = False
                         break
             elif "--name" in cmd:
-                # For name mode, check first name only
+                # For name mode, check both first and last names
                 parts = line.split(' ')
-                if len(parts) >= 1:
+                if len(parts) >= 2:
                     first_name = parts[0].lower()
-                    if not first_name.startswith(expected_prefix.lower()):
-                        print(f"  FAIL: {cmd} (first name '{parts[0]}' doesn't start with '{expected_prefix}')")
+                    last_name = parts[1].lower()
+                    if not (first_name.startswith(expected_prefix.lower()) and 
+                           last_name.startswith(expected_prefix.lower())):
+                        print(f"  FAIL: {cmd} (names '{parts[0]} {parts[1]}' don't both start with '{expected_prefix}')")
                         all_valid = False
                 else:
                     print(f"  FAIL: {cmd} (invalid name format: '{line}')")
@@ -403,12 +405,14 @@ def test_suffix_functionality():
                         all_valid = False
                         break
             elif "--name" in cmd:
-                # For name mode, check first name only
+                # For name mode, check both first and last names
                 parts = line.split(' ')
-                if len(parts) >= 1:
+                if len(parts) >= 2:
                     first_name = parts[0].lower()
-                    if not first_name.endswith(expected_suffix.lower()):
-                        print(f"  FAIL: {cmd} (first name '{parts[0]}' doesn't end with '{expected_suffix}')")
+                    last_name = parts[1].lower()
+                    if not (first_name.endswith(expected_suffix.lower()) and 
+                           last_name.endswith(expected_suffix.lower())):
+                        print(f"  FAIL: {cmd} (names '{parts[0]} {parts[1]}' don't both end with '{expected_suffix}')")
                         all_valid = False
                 else:
                     print(f"  FAIL: {cmd} (invalid name format: '{line}')")
@@ -442,22 +446,81 @@ def test_suffix_functionality():
                 print(f"  PASS: {cmd} -> {len(result_lines)} results with suffix '{expected_suffix}'")
 
 
-def test_prefix_suffix_mutual_exclusivity():
-    """Test that prefix and suffix cannot be used together."""
-    print("\nTesting prefix/suffix mutual exclusivity...")
+def test_prefix_suffix_combination():
+    """Test that prefix and suffix can now be used together."""
+    print("\nTesting prefix+suffix combination...")
     
-    error_tests = [
-        "python nonsense_generator.py --markov --prefix=test --suffix=ing --single",
-        "python nonsense_generator.py --markov --prefix=cat --suffix=ly --count=5",
-        "python nonsense_generator.py --name --prefix=john --suffix=son",
+    tests = [
+        ("python nonsense_generator.py --markov --prefix=pre --suffix=ing --single", "pre", "ing"),
+        ("python nonsense_generator.py --markov --prefix=un --suffix=able --single", "un", "able"),
+        ("python nonsense_generator.py --markov --prefix=test --suffix=ly --single", "test", "ly"),
+        ("python nonsense_generator.py --markov --prefix=cat --suffix=ed --count=3", "cat", "ed"),
+        ("python nonsense_generator.py --name --prefix=john --suffix=son", "john", "son"),
     ]
     
-    for cmd in error_tests:
+    for cmd, expected_prefix, expected_suffix in tests:
         output, code = run_command(cmd)
-        if code == 0:
-            print(f"  FAIL: {cmd} (should have failed but didn't)")
-        else:
-            print(f"  PASS: {cmd} (correctly failed with exit code {code})")
+        if code != 0:
+            print(f"  FAIL: {cmd} (exit code {code})")
+            continue
+            
+        lines = output.strip().split('\n')
+        # Find the actual output (last non-verbose line)
+        result_lines = []
+        for line in lines:
+            if line.strip() and not line.startswith(('Initializing', 'Loading', 'Downloaded', 'Built', 'Loaded', 'Saved')):
+                result_lines.append(line.strip())
+        
+        if not result_lines:
+            print(f"  FAIL: {cmd} (no output found)")
+            continue
+            
+        all_valid = True
+        for line in result_lines:
+            if "--name" in cmd:
+                # For name mode, check both first and last names
+                parts = line.split(' ')
+                if len(parts) >= 2:
+                    first_name = parts[0].lower()
+                    last_name = parts[1].lower()
+                    if not (first_name.startswith(expected_prefix.lower()) and 
+                           first_name.endswith(expected_suffix.lower()) and
+                           last_name.startswith(expected_prefix.lower()) and 
+                           last_name.endswith(expected_suffix.lower())):
+                        print(f"  FAIL: {cmd} (names '{parts[0]} {parts[1]}' don't both have prefix '{expected_prefix}' and suffix '{expected_suffix}')")
+                        all_valid = False
+                else:
+                    print(f"  FAIL: {cmd} (invalid name format: '{line}')")
+                    all_valid = False
+            elif "--count=" in cmd:
+                # For batch mode, check each word
+                words = []
+                for batch_line in result_lines:
+                    row_words = [w.strip() for w in batch_line.split() if w.strip()]
+                    words.extend(row_words)
+                
+                for word in words:
+                    if not (word.lower().startswith(expected_prefix.lower()) and 
+                           word.lower().endswith(expected_suffix.lower())):
+                        print(f"  FAIL: {cmd} (word '{word}' doesn't have prefix '{expected_prefix}' and suffix '{expected_suffix}')")
+                        all_valid = False
+                        break
+                break  # Only check once for batch mode
+            else:
+                # For single mode, check the word directly
+                if not (line.lower().startswith(expected_prefix.lower()) and 
+                       line.lower().endswith(expected_suffix.lower())):
+                    print(f"  FAIL: {cmd} (word '{line}' doesn't have prefix '{expected_prefix}' and suffix '{expected_suffix}')")
+                    all_valid = False
+            
+            if not all_valid:
+                break
+                
+        if all_valid:
+            if len(result_lines) == 1:
+                print(f"  PASS: {cmd} -> '{result_lines[0]}'")
+            else:
+                print(f"  PASS: {cmd} -> {len(result_lines)} results with prefix '{expected_prefix}' and suffix '{expected_suffix}'")
 
 
 def test_all_languages():
@@ -583,7 +646,7 @@ def main():
     test_markov_parameters()
     test_prefix_functionality()
     test_suffix_functionality()
-    test_prefix_suffix_mutual_exclusivity()
+    test_prefix_suffix_combination()
     test_length_ranges()
     test_all_languages()
     

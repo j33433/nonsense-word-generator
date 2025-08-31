@@ -52,6 +52,13 @@ crunting      aling         pentroting    waloding      efuniceating
 python nonsense_generator.py --suffix=tion --count=5
 fration       romboation    nortion       gation        wiscatistion
 
+# Words with both prefix and suffix
+python nonsense_generator.py --prefix=pre --suffix=ing --count=5
+prewistaking  preforming    preconding    pretraining   prebuilding
+
+python nonsense_generator.py --prefix=un --suffix=able --count=5 --length=8-12
+unchartable   unmostrable   unegricable   unfinsable    unambactable
+
 # List all available word sources
 python nonsense_generator.py --list
 Language dictionaries (Hunspell - high quality, morphologically aware):
@@ -112,7 +119,7 @@ Markov mode is automatically enabled when any of these options are used:
 
 **Suffix (`--suffix`)**
 - End generated words with a specific suffix
-- Mutually exclusive with `--prefix`
+- Can be combined with `--prefix`
 - Example: `--suffix=ing` generates words like "processing", "marketing"
 
 **Manual Markov Mode (`--markov`)**

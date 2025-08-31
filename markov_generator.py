@@ -232,7 +232,7 @@ class MarkovWordGenerator:
             raise ValueError(f"Invalid length parameters: min_len={min_len}, max_len={max_len}")
         
         if prefix and suffix:
-            raise ValueError("Cannot specify both prefix and suffix")
+            return self.generate_with_prefix_and_suffix(prefix, suffix, min_len, max_len, max_retries)
         
         if prefix:
             return self.generate_with_prefix(prefix, min_len, max_len, max_retries)
@@ -431,6 +431,101 @@ class MarkovWordGenerator:
                     best_word = final_word
         
         return best_word if best_word else suffix
+
+    def generate_with_prefix_and_suffix(self, prefix, suffix, min_len=3, max_len=10, max_retries=200):
+        """Generate a word with both prefix and suffix using bidirectional generation.
+        
+        This uses a clever trick: generate a word in reverse mode that starts with the 
+        reversed suffix and ends with the reversed prefix, then reverse the entire result.
+        
+        Args:
+            prefix: String to start the word with
+            suffix: String to end the word with
+            min_len: Minimum word length
+            max_len: Maximum word length  
+            max_retries: Maximum attempts to generate a valid word
+            
+        Returns:
+            str: Generated word with both prefix and suffix
+            
+        Raises:
+            ValueError: If min_len > max_len or min_len < 1
+        """
+        if min_len > max_len or min_len < 1:
+            raise ValueError(f"Invalid length parameters: min_len={min_len}, max_len={max_len}")
+        
+        if not prefix or not suffix:
+            if prefix:
+                return self.generate_with_prefix(prefix, min_len, max_len, max_retries)
+            elif suffix:
+                return self.generate_with_suffix(suffix, min_len, max_len, max_retries)
+            else:
+                return self.generate(min_len, max_len, max_retries)
+        
+        prefix = prefix.lower()
+        suffix = suffix.lower()
+        
+        # Check if prefix + suffix alone would exceed max_len
+        if len(prefix) + len(suffix) > max_len:
+            # Fallback: just use prefix
+            return self.generate_with_prefix(prefix, min_len, max_len, max_retries)
+        
+        # Create or use reverse-mode generator
+        if not self.reverse_mode:
+            # Create a temporary reverse-mode generator
+            reverse_gen = MarkovWordGenerator(
+                order=self.order, 
+                cutoff=self.cutoff, 
+                verbose=False, 
+                words=self.word_list_type, 
+                reverse_mode=True
+            )
+        else:
+            reverse_gen = self
+        
+        reversed_suffix = suffix[::-1]
+        reversed_prefix = prefix[::-1]
+        best_word = ""
+        
+        # Try to generate a word that starts with reversed_suffix and ends with reversed_prefix
+        for retry in range(max_retries):
+            # Generate with reversed suffix as prefix
+            temp_word = reverse_gen.generate_with_prefix(
+                reversed_suffix, 
+                min_len, 
+                max_len, 
+                max_retries=50  # Fewer retries per attempt since we have outer retry loop
+            )
+            
+            # Check if it naturally ends with reversed prefix
+            if temp_word.endswith(reversed_prefix):
+                final_word = temp_word[::-1]
+                if final_word not in self.word_set and min_len <= len(final_word) <= max_len:
+                    return final_word
+                elif not best_word or abs(len(final_word) - (min_len + max_len) // 2) < abs(len(best_word) - (min_len + max_len) // 2):
+                    best_word = final_word
+            
+            # Alternative: try to force the connection by truncating and appending
+            if len(temp_word) > len(reversed_suffix):
+                # Remove the reversed_suffix part and append reversed_prefix
+                middle_part = temp_word[len(reversed_suffix):]
+                if len(middle_part) + len(reversed_suffix) + len(reversed_prefix) <= max_len:
+                    forced_word = reversed_suffix + middle_part + reversed_prefix
+                    final_word = forced_word[::-1]
+                    if (final_word not in self.word_set and 
+                        min_len <= len(final_word) <= max_len and
+                        final_word.startswith(prefix) and 
+                        final_word.endswith(suffix)):
+                        return final_word
+                    elif not best_word or abs(len(final_word) - (min_len + max_len) // 2) < abs(len(best_word) - (min_len + max_len) // 2):
+                        best_word = final_word
+        
+        # Final fallback: simple concatenation with minimal middle
+        if not best_word:
+            middle = "a" if len(prefix) + len(suffix) + 1 <= max_len else ""
+            best_word = prefix + middle + suffix
+        
+        return best_word
 
     def generate_batch(self, count=10, 
                       min_len=3, 

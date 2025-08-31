@@ -75,11 +75,6 @@ def validate_args(args):
         else:
             min_len, max_len = 5, 12
     
-    # Validate prefix/suffix mutual exclusivity
-    if args.prefix and args.suffix:
-        print("Error: --prefix and --suffix cannot be used together")
-        exit(1)
-    
     # Validate word source
     if args.words.startswith(('http://', 'https://')):
         pass  # Custom URL - no validation needed
@@ -145,7 +140,7 @@ def generate_words(args):
             
             for retry in range(max_retries):
                 first_name = first_gen.generate(min_len, max_len, prefix=args.prefix, suffix=args.suffix).capitalize()
-                last_name = last_gen.generate(min_len, max_len).capitalize()
+                last_name = last_gen.generate(min_len, max_len, prefix=args.prefix, suffix=args.suffix).capitalize()
                 
                 # Check if both names meet the length constraints
                 if (min_len <= len(first_name) <= max_len and 
