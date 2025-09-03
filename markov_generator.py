@@ -27,6 +27,7 @@ class MarkovWordGenerator:
         self.cutoff = cutoff
         self.word_list_type = words
         self.reverse_mode = reverse_mode
+        self.trace = trace
         self.dbg = Debug(verbose, trace)
         self.chains = defaultdict(Counter)
         self.start_chains = Counter()
@@ -522,8 +523,16 @@ class MarkovWordGenerator:
         for retry in range(max_retries):
             self.dbg.generation_attempt(retry + 1, "Prefix+Suffix")
             self.dbg.trace(f"Prefix: '{prefix}', Suffix: '{suffix}', Target middle length: {min_len - len(prefix) - len(suffix)}-{max_len - len(prefix) - len(suffix)}")
-            self.dbg.trace(f"Starting middle generation from state: 'aj'")
             self.dbg.trace(f"Current word so far: '{prefix}' (will add middle, then '{suffix}')")
+            
+            # Determine a likely join character after the prefix in forward direction
+            if len(prefix) >= self.order:
+                forward_state = prefix[-self.order:]
+            else:
+                forward_state = (self.start_marker + prefix)[-self.order:]
+            join_char = ""
+            if forward_state in self.chains:
+                join_char = self._weighted_choice(self.chains[forward_state], forward_state)
             
             # Generate with reversed suffix as prefix
             temp_word = reverse_gen.generate_with_prefix(
@@ -544,19 +553,21 @@ class MarkovWordGenerator:
             
             # Alternative: try to force the connection by truncating and appending
             if len(temp_word) > len(reversed_suffix):
-                # Remove the reversed_suffix part and append reversed_prefix
+                # Remove the reversed_suffix part and attempt a join that respects the forward chain's next-char
                 middle_part = temp_word[len(reversed_suffix):]
-                if len(middle_part) + len(reversed_suffix) + len(reversed_prefix) <= max_len:
-                    forced_word = reversed_suffix + middle_part + reversed_prefix
-                    final_word = forced_word[::-1]
-                    if (final_word not in self.word_set and 
-                        min_len <= len(final_word) <= max_len and
-                        final_word.startswith(prefix) and 
-                        final_word.endswith(suffix)):
-                        self.dbg.result(True, final_word, "with prefix and suffix")
-                        return final_word
-                    elif not best_word or abs(len(final_word) - (min_len + max_len) // 2) < abs(len(best_word) - (min_len + max_len) // 2):
-                        best_word = final_word
+                # Only allow forced join if we have a predicted join_char and a non-empty middle that matches it
+                if join_char and middle_part and middle_part[-1] == join_char:
+                    if len(middle_part) + len(reversed_suffix) + len(reversed_prefix) <= max_len:
+                        forced_word = reversed_suffix + middle_part + reversed_prefix
+                        final_word = forced_word[::-1]
+                        if (final_word not in self.word_set and 
+                            min_len <= len(final_word) <= max_len and
+                            final_word.startswith(prefix) and 
+                            final_word.endswith(suffix)):
+                            self.dbg.result(True, final_word, "with prefix and suffix")
+                            return final_word
+                        elif not best_word or abs(len(final_word) - (min_len + max_len) // 2) < abs(len(best_word) - (min_len + max_len) // 2):
+                            best_word = final_word
         
         # Final fallback: simple concatenation with minimal middle
         if not best_word:
