@@ -161,42 +161,22 @@ class MarkovWordGenerator:
         # This filters out rare transitions to improve word quality
         # by only considering choices within cutoff% of the most likely option
         min_threshold = max_probability * self.cutoff
-        filtered_items = []
-        filtered_weights = []
-        
-        for item, weight in counter.items():
-            probability = weight / total
-            if probability >= min_threshold:
-                filtered_items.append(item)
-                filtered_weights.append(weight)
-        
-        if not filtered_items:
-            filtered_items = list(counter.keys())
-            filtered_weights = list(counter.values())
-        
-        if len(filtered_items) == 1:
-            chosen = filtered_items[0]
-        elif len(filtered_items) == 2:
-            if secrets.randbelow(filtered_weights[0] + filtered_weights[1]) < filtered_weights[0]:
-                chosen = filtered_items[0]
-            else:
-                chosen = filtered_items[1]
+        items_weights = [(item, weight) for item, weight in counter.items() if (weight / total) >= min_threshold]
+        if not items_weights:
+            items_weights = list(counter.items())
+        items, weights = zip(*items_weights)
+        r = secrets.randbelow(sum(weights))
+        for item, weight in zip(items, weights):
+            r -= weight
+            if r < 0:
+                chosen = item
+                break
         else:
-            filtered_total = sum(filtered_weights)
-            r = secrets.randbelow(filtered_total)
-            
-            for item, weight in zip(filtered_items, filtered_weights):
-                r -= weight
-                if r < 0:
-                    chosen = item
-                    break
-            else:
-                chosen = filtered_items[0]
+            chosen = items[0]
         
         # Show trace information if enabled
         if context:
-            total = sum(counter.values())
-            options = [(item, weight, weight / total) for item, weight in zip(filtered_items, filtered_weights)]
+            options = [(item, weight, weight / total) for item, weight in zip(items, weights)]
             self.dbg.state_transition(context, options, chosen)
         
         return chosen
@@ -580,18 +560,3 @@ class MarkovWordGenerator:
         """
         return [self.generate(min_len, max_len, prefix=prefix, suffix=suffix) for _ in range(count)]
 
-    def generate_batch_with_prefix(self, prefix, count=10, 
-                                  min_len=3, 
-                                  max_len=10):
-        """Generate multiple words starting with the given prefix.
-        
-        Args:
-            prefix: String to start each word with
-            count: Number of words to generate
-            min_len: Minimum word length
-            max_len: Maximum word length
-            
-        Returns:
-            list: List of generated words starting with prefix
-        """
-        return self.generate_batch(count, min_len, max_len, prefix=prefix)

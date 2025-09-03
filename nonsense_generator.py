@@ -48,9 +48,10 @@ def validate_args(args):
         tuple: (min_len, max_len) validated length parameters
     """
     # Auto-enable Markov mode if Markov-specific options are used
-    if (args.order != 2 or args.cutoff != 0.1 or args.words != "en" or 
-        args.prefix or args.suffix or args.trace):
-        args.markov = True
+    args.markov = args.markov or any([
+        args.order != 2, args.cutoff != 0.1, args.words != "en",
+        bool(args.prefix), bool(args.suffix), args.trace
+    ])
     
     # Parse and validate length
     if args.length:
@@ -115,20 +116,15 @@ def generate_words(args):
             print("Initializing syllable-based generator...", file=sys.stderr)
         gen = SyllableWordGenerator()
     
+    gen_kwargs = {"prefix": args.prefix}
+    if isinstance(gen, MarkovWordGenerator):
+        gen_kwargs["suffix"] = args.suffix
     if args.single:
-        if isinstance(gen, MarkovWordGenerator):
-            word = gen.generate(min_len, max_len, prefix=args.prefix, suffix=args.suffix)
-        else:
-            word = gen.generate(min_len, max_len, prefix=args.prefix)
-        print(word)
+        print(gen.generate(min_len, max_len, **gen_kwargs))
     elif args.token:
         for _ in range(args.count):
-            if isinstance(gen, MarkovWordGenerator):
-                words = gen.generate_batch(3, min_len, max_len, prefix=args.prefix, suffix=args.suffix)
-            else:
-                words = gen.generate_batch(3, min_len, max_len, prefix=args.prefix)
-            token = "-".join(words)
-            print(token)
+            words = gen.generate_batch(3, min_len, max_len, **gen_kwargs)
+            print("-".join(words))
     elif args.name:
         first_gen, last_gen = gen
         for _ in range(args.count):
@@ -136,6 +132,9 @@ def generate_words(args):
             max_retries = 50
             best_first = ""
             best_last = ""
+            center = (min_len + max_len) // 2
+            def closer(best, cand):
+                return (not best) or abs(len(cand) - center) < abs(len(best) - center)
             
             for retry in range(max_retries):
                 first_name = first_gen.generate(min_len, max_len, prefix=args.prefix, suffix=args.suffix).capitalize()
@@ -148,18 +147,15 @@ def generate_words(args):
                     break
                     
                 # Keep track of best candidates for fallback
-                if not best_first or abs(len(first_name) - (min_len + max_len) // 2) < abs(len(best_first) - (min_len + max_len) // 2):
+                if closer(best_first, first_name):
                     best_first = first_name
-                if not best_last or abs(len(last_name) - (min_len + max_len) // 2) < abs(len(best_last) - (min_len + max_len) // 2):
+                if closer(best_last, last_name):
                     best_last = last_name
             else:
                 # Fallback with best candidates that are closest to target length
                 print(f"{best_first} {best_last}")
     else:
-        if isinstance(gen, MarkovWordGenerator):
-            words = gen.generate_batch(args.count, min_len, max_len, prefix=args.prefix, suffix=args.suffix)
-        else:
-            words = gen.generate_batch(args.count, min_len, max_len, prefix=args.prefix)
+        words = gen.generate_batch(args.count, min_len, max_len, **gen_kwargs)
         max_width = max(max(len(word) for word in words), 12)
         for i in range(0, len(words), 5):
             row = words[i:i+5]
