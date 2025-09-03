@@ -6,7 +6,6 @@ import argparse
 from syllable_generator import SyllableWordGenerator
 from markov_generator import MarkovWordGenerator
 from word_loader import WORD_URLS, parse_length
-from hunspell import HUNSPELL_DICT_URLS
 
 
 def list_word_sources():

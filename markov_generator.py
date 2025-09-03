@@ -2,10 +2,9 @@
 
 import sys
 import secrets
-import copy
 from collections import defaultdict, Counter
 from cache_manager import CacheManager
-from word_loader import load_words, WORD_URLS
+from word_loader import load_words
 from debug import Debug
 
 
@@ -31,8 +30,6 @@ class MarkovWordGenerator:
         self.dbg = Debug(verbose, trace)
         self.chains = defaultdict(Counter)
         self.start_chains = Counter()
-        self._template_chains = None
-        self._template_start_chains = None
         self.cache_manager = CacheManager()
         
         # Generate cache key
@@ -59,8 +56,7 @@ class MarkovWordGenerator:
         
         padded_word = self.start_marker + word + "$"
         
-        start_ngram = padded_word[:self.order]
-        self.start_chains[start_ngram] += 1
+        self.start_chains[padded_word[:self.order]] += 1
         
         for i in range(len(padded_word) - self.order):
             ngram = padded_word[i:i + self.order]
@@ -89,7 +85,6 @@ class MarkovWordGenerator:
                 self.dbg.print(f"Processed {word_count} words...")
         
         self.dbg.print(f"Built Markov chains with {len(self.chains)} states from {word_count} words")
-        self._create_templates()
         self._save_chains()
 
     def _load_or_build_chains(self):
@@ -116,15 +111,7 @@ class MarkovWordGenerator:
         else:
             self.dbg.print("Warning: Could not save cache")
 
-    def _create_templates(self):
-        """Create readonly template copies of the chains for fresh generation."""
-        # No need for templates - chains are stateless probability tables
-        pass
 
-    def _reset_chains(self):
-        """Reset chains to fresh template state."""
-        # No need to reset - each generation starts fresh from start_chains
-        pass
 
     def _load_chains(self):
         """Load chains from cache."""
@@ -144,10 +131,8 @@ class MarkovWordGenerator:
         self.start_chains = cache_data['start_chains']
         
         # Load word set fresh from word_loader (it's already cached there)
-        from word_loader import load_words
         self.word_set = load_words(self.word_list_type, verbose=False, cache_manager=self.cache_manager)
         
-        self._create_templates()
         self.dbg.print(f"Loaded {len(self.chains)} chain states from cache")
         self.dbg.print(f"Using {cache_data['word_count']} cached training words")
 
