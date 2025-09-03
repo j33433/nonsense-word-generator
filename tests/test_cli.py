@@ -40,19 +40,20 @@ def test_single_mode():
     print("Testing --single mode...")
     
     tests = [
-        ("python nonsense_generator.py --single", 8, 12),
-        ("python nonsense_generator.py --single --length=5-8", 5, 8),
-        ("python nonsense_generator.py --single --length=10", 10, 10),
-        ("python nonsense_generator.py --single --length=2-4", 2, 4),
-        ("python nonsense_generator.py --single --markov", 8, 12),
-        ("python nonsense_generator.py --single --markov --length=6-15", 6, 15),
-        ("python nonsense_generator.py --single --markov --order=3 --length=4-7", 4, 7),
+        ("python3 nonsense_generator.py --single", 8, 12),
+        ("python3 nonsense_generator.py --single --length=5-8", 5, 8),
+        ("python3 nonsense_generator.py --single --length=10", 10, 10),
+        ("python3 nonsense_generator.py --single --length=2-4", 2, 4),
+        ("python3 nonsense_generator.py --single --markov", 8, 12),
+        ("python3 nonsense_generator.py --single --markov --length=6-15", 6, 15),
+        ("python3 nonsense_generator.py --single --markov --order=3 --length=4-7", 4, 7),
     ]
     
     for cmd, min_len, max_len in tests:
         output, code = run_command(cmd)
         if code != 0:
             print(f"  FAIL: {cmd} (exit code {code})")
+            print(f"        Command: {cmd}")
             continue
             
         lines = output.strip().split('\n')
@@ -77,28 +78,31 @@ def test_token_mode():
     print("\nTesting --token mode...")
     
     tests = [
-        ("python nonsense_generator.py --token", 5, 8),
-        ("python nonsense_generator.py --token --length=3-6", 3, 6),
-        ("python nonsense_generator.py --token --length=8", 8, 8),
-        ("python nonsense_generator.py --token --markov", 5, 8),
-        ("python nonsense_generator.py --token --markov --length=2-5", 2, 5),
-        ("python nonsense_generator.py --token --markov --order=3 --length=6-10", 6, 10),
+        ("python3 nonsense_generator.py --token", 5, 8),
+        ("python3 nonsense_generator.py --token --length=3-6", 3, 6),
+        ("python3 nonsense_generator.py --token --length=8", 8, 8),
+        ("python3 nonsense_generator.py --token --markov", 5, 8),
+        ("python3 nonsense_generator.py --token --markov --length=2-5", 2, 5),
+        ("python3 nonsense_generator.py --token --markov --order=3 --length=6-10", 6, 10),
     ]
     
     for cmd, min_len, max_len in tests:
         output, code = run_command(cmd)
         if code != 0:
             print(f"  FAIL: {cmd} (exit code {code})")
+            print(f"        Command: {cmd}")
             continue
             
         lines = output.strip().split('\n')
         if len(lines) != 1:
             print(f"  FAIL: {cmd} (expected 1 line, got {len(lines)})")
+            print(f"        Command: {cmd}")
             continue
             
         token = lines[0].strip()
         if not check_token_format(token):
             print(f"  FAIL: {cmd} (invalid token format: '{token}')")
+            print(f"        Command: {cmd}")
             continue
             
         words = token.split('-')
@@ -106,6 +110,7 @@ def test_token_mode():
         for word in words:
             if not check_word_length(word, min_len, max_len):
                 print(f"  FAIL: {cmd} (word '{word}' length {len(word)} not in range {min_len}-{max_len})")
+                print(f"        Command: {cmd}")
                 all_valid = False
                 break
                 
@@ -129,25 +134,27 @@ def test_name_mode():
     print("\nTesting --name mode...")
     
     tests = [
-        ("python nonsense_generator.py --name", 6, 20, 1),
-        ("python nonsense_generator.py --name --length=3-6", 3, 6, 1),
-        ("python nonsense_generator.py --name --length=8", 8, 8, 1),
-        ("python nonsense_generator.py --name --order=2 --length=2-5", 2, 5, 1),
-        ("python nonsense_generator.py --name --order=3 --length=6-12", 6, 12, 1),
-        ("python nonsense_generator.py --name --cutoff=0.05 --length=4-8", 4, 8, 1),
-        ("python nonsense_generator.py --name --count=3", 6, 20, 3),
-        ("python nonsense_generator.py --name --count=5 --length=4-7", 4, 7, 5),
+        ("python3 nonsense_generator.py --name", 6, 20, 1),
+        ("python3 nonsense_generator.py --name --length=3-6", 3, 6, 1),
+        ("python3 nonsense_generator.py --name --length=8", 8, 8, 1),
+        ("python3 nonsense_generator.py --name --order=2 --length=2-5", 2, 5, 1),
+        ("python3 nonsense_generator.py --name --order=3 --length=6-12", 6, 12, 1),
+        ("python3 nonsense_generator.py --name --cutoff=0.05 --length=4-8", 4, 8, 1),
+        ("python3 nonsense_generator.py --name --count=3", 6, 20, 3),
+        ("python3 nonsense_generator.py --name --count=5 --length=4-7", 4, 7, 5),
     ]
     
     for cmd, min_len, max_len, expected_count in tests:
         output, code = run_command(cmd)
         if code != 0:
             print(f"  FAIL: {cmd} (exit code {code})")
+            print(f"        Command: {cmd}")
             continue
             
         lines = output.strip().split('\n')
         if len(lines) != expected_count:
             print(f"  FAIL: {cmd} (expected {expected_count} lines, got {len(lines)})")
+            print(f"        Command: {cmd}")
             continue
             
         all_valid = True
@@ -155,6 +162,7 @@ def test_name_mode():
             name = line.strip()
             if not check_name_format(name):
                 print(f"  FAIL: {cmd} (invalid name format on line {i+1}: '{name}')")
+                print(f"        Command: {cmd}")
                 all_valid = False
                 break
                 
@@ -162,6 +170,7 @@ def test_name_mode():
             for word in [first, last]:
                 if not check_word_length(word, min_len, max_len):
                     print(f"  FAIL: {cmd} (word '{word}' length {len(word)} not in range {min_len}-{max_len})")
+                    print(f"        Command: {cmd}")
                     all_valid = False
                     break
             if not all_valid:
@@ -181,18 +190,19 @@ def test_batch_mode():
     print("\nTesting batch mode...")
     
     tests = [
-        ("python nonsense_generator.py", 50, 5, 12),
-        ("python nonsense_generator.py --count=10", 10, 5, 12),
-        ("python nonsense_generator.py --count=5 --length=4-6", 5, 4, 6),
-        ("python nonsense_generator.py --markov --count=8", 8, 5, 12),
-        ("python nonsense_generator.py --markov --count=12 --length=2-5", 12, 2, 5),
-        ("python nonsense_generator.py --markov --order=3 --count=6 --length=7-12", 6, 7, 12),
+        ("python3 nonsense_generator.py", 50, 5, 12),
+        ("python3 nonsense_generator.py --count=10", 10, 5, 12),
+        ("python3 nonsense_generator.py --count=5 --length=4-6", 5, 4, 6),
+        ("python3 nonsense_generator.py --markov --count=8", 8, 5, 12),
+        ("python3 nonsense_generator.py --markov --count=12 --length=2-5", 12, 2, 5),
+        ("python3 nonsense_generator.py --markov --order=3 --count=6 --length=7-12", 6, 7, 12),
     ]
     
     for cmd, expected_count, min_len, max_len in tests:
         output, code = run_command(cmd)
         if code != 0:
             print(f"  FAIL: {cmd} (exit code {code})")
+            print(f"        Command: {cmd}")
             continue
             
         # Parse grid output - words are separated by spaces, rows by newlines
@@ -205,6 +215,7 @@ def test_batch_mode():
         
         if len(words) != expected_count:
             print(f"  FAIL: {cmd} (expected {expected_count} words, got {len(words)})")
+            print(f"        Command: {cmd}")
             continue
             
         all_valid = True
@@ -219,6 +230,7 @@ def test_batch_mode():
                 
         if not all_valid:
             print(f"  FAIL: {cmd} (invalid words: {invalid_words[:3]}{'...' if len(invalid_words) > 3 else ''})")
+            print(f"        Command: {cmd}")
             continue
             
         lengths = [len(w) for w in words]
@@ -231,18 +243,19 @@ def test_error_cases():
     print("\nTesting error cases...")
     
     error_tests = [
-        "python nonsense_generator.py --length=invalid",
-        "python nonsense_generator.py --length=10-5",  # max < min
-        "python nonsense_generator.py --length=0-5",   # min < 1
-        "python nonsense_generator.py --single --length=-1",
-        "python nonsense_generator.py --markov --words=invalid_language",
-        "python nonsense_generator.py --name --words=es",  # --words with --name
+        "python3 nonsense_generator.py --length=invalid",
+        "python3 nonsense_generator.py --length=10-5",  # max < min
+        "python3 nonsense_generator.py --length=0-5",   # min < 1
+        "python3 nonsense_generator.py --single --length=-1",
+        "python3 nonsense_generator.py --markov --words=invalid_language",
+        "python3 nonsense_generator.py --name --words=es",  # --words with --name
     ]
     
     for cmd in error_tests:
         output, code = run_command(cmd)
         if code == 0:
             print(f"  FAIL: {cmd} (should have failed but didn't)")
+            print(f"        Command: {cmd}")
         else:
             print(f"  PASS: {cmd} (correctly failed with exit code {code})")
 
@@ -252,18 +265,19 @@ def test_markov_parameters():
     print("\nTesting Markov parameters...")
     
     tests = [
-        "python nonsense_generator.py --markov --order=1 --single",
-        "python nonsense_generator.py --markov --order=3 --cutoff=0.05 --single",
-        "python nonsense_generator.py --markov --words=es --single",
-        "python nonsense_generator.py --markov --words=names --single",
-        "python nonsense_generator.py --markov --verbose --single",
-        "python nonsense_generator.py --markov --words=https://raw.githubusercontent.com/jneidel/animal-names/refs/heads/master/animals-common.txt --single",
+        "python3 nonsense_generator.py --markov --order=1 --single",
+        "python3 nonsense_generator.py --markov --order=3 --cutoff=0.05 --single",
+        "python3 nonsense_generator.py --markov --words=es --single",
+        "python3 nonsense_generator.py --markov --words=names --single",
+        "python3 nonsense_generator.py --markov --verbose --single",
+        "python3 nonsense_generator.py --markov --words=https://raw.githubusercontent.com/jneidel/animal-names/refs/heads/master/animals-common.txt --single",
     ]
     
     for cmd in tests:
         output, code = run_command(cmd)
         if code != 0:
             print(f"  FAIL: {cmd} (exit code {code})")
+            print(f"        Command: {cmd}")
         else:
             lines = output.strip().split('\n')
             # Find the actual word (last non-verbose line)
@@ -277,6 +291,7 @@ def test_markov_parameters():
                 print(f"  PASS: {cmd} -> '{word_line}'")
             else:
                 print(f"  FAIL: {cmd} (no valid word found in output)")
+                print(f"        Command: {cmd}")
 
 
 def test_prefix_functionality():
@@ -284,19 +299,20 @@ def test_prefix_functionality():
     print("\nTesting prefix functionality...")
     
     tests = [
-        ("python nonsense_generator.py --markov --prefix=steve --single", "steve"),
-        ("python nonsense_generator.py --markov --prefix=joe --single", "joe"),
-        ("python nonsense_generator.py --markov --prefix=test --single", "test"),
-        ("python nonsense_generator.py --markov --words=names --prefix=james --single", "james"),
-        ("python nonsense_generator.py --markov --prefix=cat --count=5", "cat"),
-        ("python nonsense_generator.py --markov --prefix=dog --token", "dog"),
-        ("python nonsense_generator.py --name --prefix=alex", "alex"),
+        ("python3 nonsense_generator.py --markov --prefix=steve --single", "steve"),
+        ("python3 nonsense_generator.py --markov --prefix=joe --single", "joe"),
+        ("python3 nonsense_generator.py --markov --prefix=test --single", "test"),
+        ("python3 nonsense_generator.py --markov --words=names --prefix=james --single", "james"),
+        ("python3 nonsense_generator.py --markov --prefix=cat --count=5", "cat"),
+        ("python3 nonsense_generator.py --markov --prefix=dog --token", "dog"),
+        ("python3 nonsense_generator.py --name --prefix=alex", "alex"),
     ]
     
     for cmd, expected_prefix in tests:
         output, code = run_command(cmd)
         if code != 0:
             print(f"  FAIL: {cmd} (exit code {code})")
+            print(f"        Command: {cmd}")
             continue
             
         lines = output.strip().split('\n')
@@ -308,6 +324,7 @@ def test_prefix_functionality():
         
         if not result_lines:
             print(f"  FAIL: {cmd} (no output found)")
+            print(f"        Command: {cmd}")
             continue
             
         all_valid = True
@@ -318,6 +335,7 @@ def test_prefix_functionality():
                 for word in words:
                     if not word.lower().startswith(expected_prefix.lower()):
                         print(f"  FAIL: {cmd} (word '{word}' doesn't start with '{expected_prefix}')")
+                        print(f"        Command: {cmd}")
                         all_valid = False
                         break
             elif "--name" in cmd:
@@ -329,9 +347,11 @@ def test_prefix_functionality():
                     if not (first_name.startswith(expected_prefix.lower()) and 
                            last_name.startswith(expected_prefix.lower())):
                         print(f"  FAIL: {cmd} (names '{parts[0]} {parts[1]}' don't both start with '{expected_prefix}')")
+                        print(f"        Command: {cmd}")
                         all_valid = False
                 else:
                     print(f"  FAIL: {cmd} (invalid name format: '{line}')")
+                    print(f"        Command: {cmd}")
                     all_valid = False
             elif "--count=" in cmd:
                 # For batch mode, check each word
@@ -343,6 +363,7 @@ def test_prefix_functionality():
                 for word in words:
                     if not word.lower().startswith(expected_prefix.lower()):
                         print(f"  FAIL: {cmd} (word '{word}' doesn't start with '{expected_prefix}')")
+                        print(f"        Command: {cmd}")
                         all_valid = False
                         break
                 break  # Only check once for batch mode
@@ -350,6 +371,7 @@ def test_prefix_functionality():
                 # For single mode, check the word directly
                 if not line.lower().startswith(expected_prefix.lower()):
                     print(f"  FAIL: {cmd} (word '{line}' doesn't start with '{expected_prefix}')")
+                    print(f"        Command: {cmd}")
                     all_valid = False
             
             if not all_valid:
@@ -367,20 +389,21 @@ def test_suffix_functionality():
     print("\nTesting suffix functionality...")
     
     tests = [
-        ("python nonsense_generator.py --markov --suffix=ing --single", "ing"),
-        ("python nonsense_generator.py --markov --suffix=tion --single", "tion"),
-        ("python nonsense_generator.py --markov --suffix=ly --single", "ly"),
-        ("python nonsense_generator.py --markov --suffix=ed --single", "ed"),
-        ("python nonsense_generator.py --markov --words=names --suffix=son --single", "son"),
-        ("python nonsense_generator.py --markov --suffix=er --count=5", "er"),
-        ("python nonsense_generator.py --markov --suffix=ing --token", "ing"),
-        ("python nonsense_generator.py --name --suffix=ton", "ton"),
+        ("python3 nonsense_generator.py --markov --suffix=ing --single", "ing"),
+        ("python3 nonsense_generator.py --markov --suffix=tion --single", "tion"),
+        ("python3 nonsense_generator.py --markov --suffix=ly --single", "ly"),
+        ("python3 nonsense_generator.py --markov --suffix=ed --single", "ed"),
+        ("python3 nonsense_generator.py --markov --words=names --suffix=son --single", "son"),
+        ("python3 nonsense_generator.py --markov --suffix=er --count=5", "er"),
+        ("python3 nonsense_generator.py --markov --suffix=ing --token", "ing"),
+        ("python3 nonsense_generator.py --name --suffix=ton", "ton"),
     ]
     
     for cmd, expected_suffix in tests:
         output, code = run_command(cmd)
         if code != 0:
             print(f"  FAIL: {cmd} (exit code {code})")
+            print(f"        Command: {cmd}")
             continue
             
         lines = output.strip().split('\n')
@@ -392,6 +415,7 @@ def test_suffix_functionality():
         
         if not result_lines:
             print(f"  FAIL: {cmd} (no output found)")
+            print(f"        Command: {cmd}")
             continue
             
         all_valid = True
@@ -402,6 +426,7 @@ def test_suffix_functionality():
                 for word in words:
                     if not word.lower().endswith(expected_suffix.lower()):
                         print(f"  FAIL: {cmd} (word '{word}' doesn't end with '{expected_suffix}')")
+                        print(f"        Command: {cmd}")
                         all_valid = False
                         break
             elif "--name" in cmd:
@@ -413,9 +438,11 @@ def test_suffix_functionality():
                     if not (first_name.endswith(expected_suffix.lower()) and 
                            last_name.endswith(expected_suffix.lower())):
                         print(f"  FAIL: {cmd} (names '{parts[0]} {parts[1]}' don't both end with '{expected_suffix}')")
+                        print(f"        Command: {cmd}")
                         all_valid = False
                 else:
                     print(f"  FAIL: {cmd} (invalid name format: '{line}')")
+                    print(f"        Command: {cmd}")
                     all_valid = False
             elif "--count=" in cmd:
                 # For batch mode, check each word
@@ -427,6 +454,7 @@ def test_suffix_functionality():
                 for word in words:
                     if not word.lower().endswith(expected_suffix.lower()):
                         print(f"  FAIL: {cmd} (word '{word}' doesn't end with '{expected_suffix}')")
+                        print(f"        Command: {cmd}")
                         all_valid = False
                         break
                 break  # Only check once for batch mode
@@ -434,6 +462,7 @@ def test_suffix_functionality():
                 # For single mode, check the word directly
                 if not line.lower().endswith(expected_suffix.lower()):
                     print(f"  FAIL: {cmd} (word '{line}' doesn't end with '{expected_suffix}')")
+                    print(f"        Command: {cmd}")
                     all_valid = False
             
             if not all_valid:
@@ -451,17 +480,18 @@ def test_prefix_suffix_combination():
     print("\nTesting prefix+suffix combination...")
     
     tests = [
-        ("python nonsense_generator.py --markov --prefix=pre --suffix=ing --single", "pre", "ing"),
-        ("python nonsense_generator.py --markov --prefix=un --suffix=able --single", "un", "able"),
-        ("python nonsense_generator.py --markov --prefix=test --suffix=ly --single", "test", "ly"),
-        ("python nonsense_generator.py --markov --prefix=cat --suffix=ed --count=3", "cat", "ed"),
-        ("python nonsense_generator.py --name --prefix=john --suffix=son", "john", "son"),
+        ("python3 nonsense_generator.py --markov --prefix=pre --suffix=ing --single", "pre", "ing"),
+        ("python3 nonsense_generator.py --markov --prefix=un --suffix=able --single", "un", "able"),
+        ("python3 nonsense_generator.py --markov --prefix=test --suffix=ly --single", "test", "ly"),
+        ("python3 nonsense_generator.py --markov --prefix=cat --suffix=ed --count=3", "cat", "ed"),
+        ("python3 nonsense_generator.py --name --prefix=john --suffix=son", "john", "son"),
     ]
     
     for cmd, expected_prefix, expected_suffix in tests:
         output, code = run_command(cmd)
         if code != 0:
             print(f"  FAIL: {cmd} (exit code {code})")
+            print(f"        Command: {cmd}")
             continue
             
         lines = output.strip().split('\n')
@@ -473,6 +503,7 @@ def test_prefix_suffix_combination():
         
         if not result_lines:
             print(f"  FAIL: {cmd} (no output found)")
+            print(f"        Command: {cmd}")
             continue
             
         all_valid = True
@@ -488,9 +519,11 @@ def test_prefix_suffix_combination():
                            last_name.startswith(expected_prefix.lower()) and 
                            last_name.endswith(expected_suffix.lower())):
                         print(f"  FAIL: {cmd} (names '{parts[0]} {parts[1]}' don't both have prefix '{expected_prefix}' and suffix '{expected_suffix}')")
+                        print(f"        Command: {cmd}")
                         all_valid = False
                 else:
                     print(f"  FAIL: {cmd} (invalid name format: '{line}')")
+                    print(f"        Command: {cmd}")
                     all_valid = False
             elif "--count=" in cmd:
                 # For batch mode, check each word
@@ -503,6 +536,7 @@ def test_prefix_suffix_combination():
                     if not (word.lower().startswith(expected_prefix.lower()) and 
                            word.lower().endswith(expected_suffix.lower())):
                         print(f"  FAIL: {cmd} (word '{word}' doesn't have prefix '{expected_prefix}' and suffix '{expected_suffix}')")
+                        print(f"        Command: {cmd}")
                         all_valid = False
                         break
                 break  # Only check once for batch mode
@@ -511,6 +545,7 @@ def test_prefix_suffix_combination():
                 if not (line.lower().startswith(expected_prefix.lower()) and 
                        line.lower().endswith(expected_suffix.lower())):
                     print(f"  FAIL: {cmd} (word '{line}' doesn't have prefix '{expected_prefix}' and suffix '{expected_suffix}')")
+                    print(f"        Command: {cmd}")
                     all_valid = False
             
             if not all_valid:
@@ -544,11 +579,12 @@ def test_all_languages():
             print(f"  SKIP: {lang} (not in available languages)")
             continue
             
-        cmd = f"python nonsense_generator.py --markov --words={lang} --single --length=5-8"
+        cmd = f"python3 nonsense_generator.py --markov --words={lang} --single --length=5-8"
         output, code = run_command(cmd)
         
         if code != 0:
             print(f"  FAIL: {lang} (exit code {code})")
+            print(f"        Command: {cmd}")
             continue
             
         lines = output.strip().split('\n')
@@ -563,6 +599,7 @@ def test_all_languages():
             print(f"  PASS: {lang} -> '{word_line}' (len={len(word_line)})")
         else:
             print(f"  FAIL: {lang} (no valid word found: '{word_line}')")
+            print(f"        Command: {cmd}")
 
 
 def test_length_ranges():
@@ -582,7 +619,7 @@ def test_length_ranges():
         print(f"  Testing range {min_len}-{max_len}:")
         
         # Test with syllable generator
-        cmd = f"python nonsense_generator.py --count=20 --length={min_len}-{max_len}"
+        cmd = f"python3 nonsense_generator.py --count=20 --length={min_len}-{max_len}"
         output, code = run_command(cmd)
         
         if code == 0:
@@ -606,7 +643,7 @@ def test_length_ranges():
             print(f"    Syllable: Failed with exit code {code}")
         
         # Test with Markov generator
-        cmd = f"python nonsense_generator.py --markov --count=20 --length={min_len}-{max_len}"
+        cmd = f"python3 nonsense_generator.py --markov --count=20 --length={min_len}-{max_len}"
         output, code = run_command(cmd)
         
         if code == 0:

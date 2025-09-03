@@ -6,12 +6,13 @@ import copy
 from collections import defaultdict, Counter
 from cache_manager import CacheManager
 from word_loader import load_words, WORD_URLS
+from debug import Debug
 
 
 class MarkovWordGenerator:
     """Generate pronounceable nonsense words using Markov chains trained on English words."""
     
-    def __init__(self, order=2, cutoff=0.1, verbose=False, words="en", reverse_mode=False):
+    def __init__(self, order=2, cutoff=0.1, verbose=False, words="en", reverse_mode=False, trace=False):
         """Initialize the Markov chain generator.
         
         Args:
@@ -20,12 +21,13 @@ class MarkovWordGenerator:
             verbose: Print detailed initialization messages
             words: Word list type (en, es, ...) or URL
             reverse_mode: If True, train on reversed words for suffix generation
+            trace: If True, show character-by-character generation trace
         """
         self.order = order
         self.cutoff = cutoff
-        self.verbose = verbose
         self.word_list_type = words
         self.reverse_mode = reverse_mode
+        self.dbg = Debug(verbose, trace)
         self.chains = defaultdict(Counter)
         self.start_chains = Counter()
         self._template_chains = None
@@ -43,15 +45,6 @@ class MarkovWordGenerator:
         
         self._load_or_build_chains()
   
-    def _vprint(self, *args, **kwargs):
-        """Print only if verbose mode is enabled.
-        
-        Args:
-            *args: Arguments to pass to print()
-            **kwargs: Keyword arguments to pass to print()
-        """
-        if self.verbose:
-            print(*args, **kwargs, file=sys.stderr)
 
     def _process_word_for_chains(self, word):
         """Process a single word to build Markov chains.
@@ -79,32 +72,32 @@ class MarkovWordGenerator:
         Raises:
             RuntimeError: If word loading fails or contains no valid words
         """
-        self._vprint("Loading words...")
-        self.word_set = load_words(self.word_list_type, verbose=self.verbose, cache_manager=self.cache_manager)
+        self.dbg.print("Loading words...")
+        self.word_set = load_words(self.word_list_type, verbose=self.dbg.verbose, cache_manager=self.cache_manager)
         
         if not self.word_set:
             raise RuntimeError("No valid words found")
         
-        self._vprint("Building Markov chains...")
+        self.dbg.print("Building Markov chains...")
         word_count = 0
         for word in self.word_set:
             self._process_word_for_chains(word)
             word_count += 1
             
-            if self.verbose and word_count % 50000 == 0:
-                self._vprint(f"Processed {word_count} words...")
+            if word_count % 50000 == 0:
+                self.dbg.print(f"Processed {word_count} words...")
         
-        self._vprint(f"Built Markov chains with {len(self.chains)} states from {word_count} words")
+        self.dbg.print(f"Built Markov chains with {len(self.chains)} states from {word_count} words")
         self._create_templates()
         self._save_chains()
 
     def _load_or_build_chains(self):
         """Load chains from cache or build them if cache doesn't exist."""
         if self.cache_manager.should_rebuild(self.cache_file):
-            self._vprint("Building Markov chains...")
+            self.dbg.print("Building Markov chains...")
             self._load_and_build_chains()
         else:
-            self._vprint(f"Loading cached chains from {self.cache_file}...")
+            self.dbg.print(f"Loading cached chains from {self.cache_file}...")
             self._load_chains()
 
     def _save_chains(self):
@@ -118,9 +111,9 @@ class MarkovWordGenerator:
         }
         
         if self.cache_manager.save_data(self.cache_file, cache_data):
-            self._vprint(f"Saved chains to cache: {self.cache_file}")
+            self.dbg.print(f"Saved chains to cache: {self.cache_file}")
         else:
-            self._vprint("Warning: Could not save cache")
+            self.dbg.print("Warning: Could not save cache")
 
     def _create_templates(self):
         """Create readonly template copies of the chains for fresh generation."""
@@ -139,7 +132,7 @@ class MarkovWordGenerator:
         if (cache_data is None or 
             cache_data.get('order') != self.order or 
             cache_data.get('reverse_mode') != self.reverse_mode):
-            self._vprint("Cache invalid or parameters mismatch, rebuilding...")
+            self.dbg.print("Cache invalid or parameters mismatch, rebuilding...")
             self._load_and_build_chains()
             return
         
@@ -154,10 +147,10 @@ class MarkovWordGenerator:
         self.word_set = load_words(self.word_list_type, verbose=False, cache_manager=self.cache_manager)
         
         self._create_templates()
-        self._vprint(f"Loaded {len(self.chains)} chain states from cache")
-        self._vprint(f"Using {cache_data['word_count']} cached training words")
+        self.dbg.print(f"Loaded {len(self.chains)} chain states from cache")
+        self.dbg.print(f"Using {cache_data['word_count']} cached training words")
 
-    def _weighted_choice(self, counter):
+    def _weighted_choice(self, counter, context=""):
         """Choose randomly from a Counter, filtering by relative probability.
         
         Filters out choices that are much less likely than the most probable
@@ -165,6 +158,7 @@ class MarkovWordGenerator:
         
         Args:
             counter: Counter object with items and their frequencies
+            context: Context string for trace output (current n-gram)
             
         Returns:
             str: Randomly selected item, or empty string if counter is empty
@@ -195,22 +189,31 @@ class MarkovWordGenerator:
             filtered_weights = list(counter.values())
         
         if len(filtered_items) == 1:
-            return filtered_items[0]
+            chosen = filtered_items[0]
         elif len(filtered_items) == 2:
             if secrets.randbelow(filtered_weights[0] + filtered_weights[1]) < filtered_weights[0]:
-                return filtered_items[0]
+                chosen = filtered_items[0]
             else:
-                return filtered_items[1]
+                chosen = filtered_items[1]
+        else:
+            filtered_total = sum(filtered_weights)
+            r = secrets.randbelow(filtered_total)
+            
+            for item, weight in zip(filtered_items, filtered_weights):
+                r -= weight
+                if r < 0:
+                    chosen = item
+                    break
+            else:
+                chosen = filtered_items[0]
         
-        filtered_total = sum(filtered_weights)
-        r = secrets.randbelow(filtered_total)
+        # Show trace information if enabled
+        if context:
+            total = sum(counter.values())
+            options = [(item, weight, weight / total) for item, weight in zip(filtered_items, filtered_weights)]
+            self.dbg.state_transition(context, options, chosen)
         
-        for item, weight in zip(filtered_items, filtered_weights):
-            r -= weight
-            if r < 0:
-                return item
-        
-        return filtered_items[0]
+        return chosen
 
     def generate(self, min_len=3, max_len=10, max_retries=200, prefix=None, suffix=None):
         """Generate a single word using the Markov chain.
@@ -242,9 +245,13 @@ class MarkovWordGenerator:
         
         # Try generating words, with simple fallback after half the retries
         for retry in range(max_retries):
+            self.dbg.generation_attempt(retry + 1)
+            
             # Always start fresh from start_chains - no need to reset entire chain state
-            current = self._weighted_choice(self.start_chains)
+            current = self._weighted_choice(self.start_chains, "START")
             word = ""
+            
+            self.dbg.trace(f"Initial state: '{current}'")
             
             # Relax constraints after half the retries
             if retry > max_retries // 2:
@@ -260,22 +267,30 @@ class MarkovWordGenerator:
                 attempts += 1
                 
                 if current not in self.chains:
+                    self.dbg.trace(f"No transitions found for '{current}' - stopping")
                     break
                     
-                next_char = self._weighted_choice(self.chains[current])
+                next_char = self._weighted_choice(self.chains[current], current)
                 
                 if next_char == "$":
+                    self.dbg.word_progress("End marker reached", None, word, len(word))
                     if target_min <= len(word) <= target_max and word not in self.word_set:
-                        # Reverse the word if we're in reverse mode
-                        return word[::-1] if self.reverse_mode else word
+                        final_word = word[::-1] if self.reverse_mode else word
+                        self.dbg.result(True, final_word)
+                        return final_word
+                    self.dbg.result(False, word, f"length {len(word)} not in range {target_min}-{target_max} or exists in training data")
                     break
                 elif next_char != "^":
                     word += next_char
+                    self.dbg.word_progress("Added", next_char, word, len(word))
                     if len(word) >= target_max:
+                        self.dbg.trace(f"Maximum length {target_max} reached - stopping")
                         break
                 
                 if next_char != "$":
                     current = current[1:] + next_char
+                    if next_char != "^":
+                        self.dbg.trace(f"New state: '{current}'")
         
         # Print helpful error message and exit
         print(f"Error: Could not generate a valid word after {max_retries} attempts.", file=sys.stderr)
@@ -323,12 +338,11 @@ class MarkovWordGenerator:
                 current = prefix[-self.order:]
             else:
                 # Pad the prefix with start markers to reach the required order
-                padded_prefix = self.start_marker + prefix
-                if len(padded_prefix) >= self.order:
-                    current = padded_prefix[-self.order:]
-                else:
-                    # If still too short, pad more with start markers
-                    current = (self.start_marker * self.order + prefix)[-self.order:]
+                # self.start_marker is already 'order' characters long (e.g., '^^' for order=2)
+                current = (self.start_marker + prefix)[-self.order:]
+            
+            self.dbg.generation_attempt(retry + 1, "Prefix")
+            self.dbg.trace(f"Prefix: '{prefix}', Initial state: '{current}'")
             
             max_attempts = max_len * 3
             attempts = 0
@@ -337,29 +351,38 @@ class MarkovWordGenerator:
                 attempts += 1
                 
                 if current not in self.chains:
+                    self.dbg.trace(f"No transitions found for '{current}' - stopping")
                     break
                     
-                next_char = self._weighted_choice(self.chains[current])
+                next_char = self._weighted_choice(self.chains[current], current)
                 
                 if next_char == "$":
+                    self.dbg.word_progress("End marker reached", None, word, len(word))
                     if min_len <= len(word) <= max_len:
                         break
                     elif len(word) >= min_len // 2 and attempts > max_attempts // 2:
+                        self.dbg.trace("Accepting shorter word due to retry limit")
                         break
                 elif next_char != "^":
                     word += next_char
+                    self.dbg.word_progress("Added", next_char, word, len(word))
                     if len(word) >= max_len:
+                        self.dbg.trace(f"Maximum length {max_len} reached - stopping")
                         break
                 
                 if next_char != "$":
                     current = current[1:] + next_char
+                    if next_char != "^":
+                        self.dbg.trace(f"New state: '{current}'")
             
             if word and word not in self.word_set:
                 if min_len <= len(word) <= max_len:
+                    self.dbg.result(True, word, "with prefix")
                     return word
                 # Keep the word closest to target length range as fallback
                 elif not best_word or abs(len(word) - (min_len + max_len) // 2) < abs(len(best_word) - (min_len + max_len) // 2):
                     best_word = word
+                    self.dbg.trace(f"Keeping as best candidate: '{word}'")
         
         return best_word if best_word else prefix
 
@@ -400,12 +423,8 @@ class MarkovWordGenerator:
                 current = reversed_suffix[-self.order:]
             else:
                 # Pad the reversed suffix with start markers to reach the required order
-                padded_suffix = self.start_marker + reversed_suffix
-                if len(padded_suffix) >= self.order:
-                    current = padded_suffix[-self.order:]
-                else:
-                    # If still too short, pad more with start markers
-                    current = (self.start_marker * self.order + reversed_suffix)[-self.order:]
+                # self.start_marker is already 'order' characters long (e.g., '^^' for order=2)
+                current = (self.start_marker + reversed_suffix)[-self.order:]
             
             max_attempts = max_len * 3
             attempts = 0
@@ -489,7 +508,8 @@ class MarkovWordGenerator:
                 cutoff=self.cutoff, 
                 verbose=False, 
                 words=self.word_list_type, 
-                reverse_mode=True
+                reverse_mode=True,
+                trace=self.trace
             )
         else:
             reverse_gen = self
@@ -500,6 +520,11 @@ class MarkovWordGenerator:
         
         # Try to generate a word that starts with reversed_suffix and ends with reversed_prefix
         for retry in range(max_retries):
+            self.dbg.generation_attempt(retry + 1, "Prefix+Suffix")
+            self.dbg.trace(f"Prefix: '{prefix}', Suffix: '{suffix}', Target middle length: {min_len - len(prefix) - len(suffix)}-{max_len - len(prefix) - len(suffix)}")
+            self.dbg.trace(f"Starting middle generation from state: 'aj'")
+            self.dbg.trace(f"Current word so far: '{prefix}' (will add middle, then '{suffix}')")
+            
             # Generate with reversed suffix as prefix
             temp_word = reverse_gen.generate_with_prefix(
                 reversed_suffix, 
@@ -512,6 +537,7 @@ class MarkovWordGenerator:
             if temp_word.endswith(reversed_prefix):
                 final_word = temp_word[::-1]
                 if final_word not in self.word_set and min_len <= len(final_word) <= max_len:
+                    self.dbg.result(True, final_word, "with prefix and suffix")
                     return final_word
                 elif not best_word or abs(len(final_word) - (min_len + max_len) // 2) < abs(len(best_word) - (min_len + max_len) // 2):
                     best_word = final_word
@@ -527,6 +553,7 @@ class MarkovWordGenerator:
                         min_len <= len(final_word) <= max_len and
                         final_word.startswith(prefix) and 
                         final_word.endswith(suffix)):
+                        self.dbg.result(True, final_word, "with prefix and suffix")
                         return final_word
                     elif not best_word or abs(len(final_word) - (min_len + max_len) // 2) < abs(len(best_word) - (min_len + max_len) // 2):
                         best_word = final_word

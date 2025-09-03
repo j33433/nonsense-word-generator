@@ -50,7 +50,7 @@ def validate_args(args):
     """
     # Auto-enable Markov mode if Markov-specific options are used
     if (args.order != 2 or args.cutoff != 0.1 or args.words != "en" or 
-        args.prefix or args.suffix):
+        args.prefix or args.suffix or args.trace):
         args.markov = True
     
     # Parse and validate length
@@ -106,11 +106,11 @@ def generate_words(args):
         reverse_mode = bool(args.suffix)
         
         if args.name:
-            first_gen = MarkovWordGenerator(order=args.order, cutoff=args.cutoff, verbose=args.verbose, words="names", reverse_mode=reverse_mode)
-            last_gen = MarkovWordGenerator(order=args.order, cutoff=args.cutoff, verbose=args.verbose, words="surnames", reverse_mode=reverse_mode)
+            first_gen = MarkovWordGenerator(order=args.order, cutoff=args.cutoff, verbose=args.verbose, words="names", reverse_mode=reverse_mode, trace=args.trace)
+            last_gen = MarkovWordGenerator(order=args.order, cutoff=args.cutoff, verbose=args.verbose, words="surnames", reverse_mode=reverse_mode, trace=args.trace)
             gen = (first_gen, last_gen)
         else:
-            gen = MarkovWordGenerator(order=args.order, cutoff=args.cutoff, verbose=args.verbose, words=args.words, reverse_mode=reverse_mode)
+            gen = MarkovWordGenerator(order=args.order, cutoff=args.cutoff, verbose=args.verbose, words=args.words, reverse_mode=reverse_mode, trace=args.trace)
     else:
         if args.verbose:
             print("Initializing syllable-based generator...", file=sys.stderr)
@@ -196,6 +196,8 @@ def main():
                        help="start generated words with this prefix (auto-enables Markov mode)")
     parser.add_argument("--suffix", type=str, metavar="SUFFIX",
                        help="end generated words with this suffix (auto-enables Markov mode)")
+    parser.add_argument("--trace", action="store_true",
+                       help="show character-by-character generation trace (Markov mode only)")
     parser.add_argument("--list", action="store_true",
                        help="list all available word lists and exit")
     
