@@ -84,7 +84,7 @@ def validate_args(args):
     
     # Validate name mode restrictions
     if args.name and args.words != "en":
-        print("Error: --words cannot be used with --name (names use fixed 'names' and 'surnames' word lists)")
+        print("Error: --name cannot be combined with --words. Name mode uses fixed 'names' and 'surnames' lists.")
         exit(1)
     
     return min_len, max_len
@@ -177,7 +177,7 @@ def main():
     parser.add_argument("--cutoff", type=float, default=0.1,
                        help="Markov minimum relative probability cutoff (default: 0.1, auto-enables Markov mode)")
     parser.add_argument("--words", type=str, default="en", 
-                       help="Word list type (default: en) or custom URL (auto-enables Markov mode)")
+                       help="Word list type (default: en) or custom URL (auto-enables Markov mode). Cannot be used with --name")
     parser.add_argument("--verbose", "-v", action="store_true",
                        help="print detailed initialization messages")
     parser.add_argument("--single", action="store_true",
@@ -185,7 +185,7 @@ def main():
     parser.add_argument("--token", action="store_true",
                        help="generate a token (triplet of words joined by dashes)")
     parser.add_argument("--name", action="store_true",
-                       help="generate a first and last name (e.g., 'Sharrol Kritzen')")
+                       help="generate a first and last name (e.g., 'Sharrol Kritzen'); uses fixed 'names' and 'surnames' lists; cannot be combined with --words")
     parser.add_argument("--batch", action="store_true",
                        help="generate batch of words (default mode)")
     parser.add_argument("--length", type=str, metavar="MIN-MAX",
