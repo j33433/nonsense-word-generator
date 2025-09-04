@@ -6,6 +6,7 @@ import argparse
 from syllable_generator import SyllableWordGenerator
 from markov_generator import MarkovWordGenerator
 from word_loader import WORD_URLS, parse_length
+from errors import GenerationError
 
 
 def list_word_sources():
@@ -106,11 +107,11 @@ def generate_words(args):
         reverse_mode = bool(args.suffix)
         
         if args.name:
-            first_gen = MarkovWordGenerator(order=args.order, cutoff=args.cutoff, verbose=args.verbose, words="names", reverse_mode=reverse_mode, trace=args.trace)
-            last_gen = MarkovWordGenerator(order=args.order, cutoff=args.cutoff, verbose=args.verbose, words="surnames", reverse_mode=reverse_mode, trace=args.trace)
+            first_gen = MarkovWordGenerator(order=args.order, cutoff=args.cutoff, verbose=args.verbose, words="names", reverse_mode=reverse_mode, trace=args.trace, morphology=args.morphology)
+            last_gen = MarkovWordGenerator(order=args.order, cutoff=args.cutoff, verbose=args.verbose, words="surnames", reverse_mode=reverse_mode, trace=args.trace, morphology=args.morphology)
             gen = (first_gen, last_gen)
         else:
-            gen = MarkovWordGenerator(order=args.order, cutoff=args.cutoff, verbose=args.verbose, words=args.words, reverse_mode=reverse_mode, trace=args.trace)
+            gen = MarkovWordGenerator(order=args.order, cutoff=args.cutoff, verbose=args.verbose, words=args.words, reverse_mode=reverse_mode, trace=args.trace, morphology=args.morphology)
     else:
         if args.verbose:
             print("Initializing syllable-based generator...", file=sys.stderr)
@@ -119,47 +120,51 @@ def generate_words(args):
     gen_kwargs = {"prefix": args.prefix}
     if isinstance(gen, MarkovWordGenerator):
         gen_kwargs["suffix"] = args.suffix
-    if args.single:
-        print(gen.generate(min_len, max_len, **gen_kwargs))
-    elif args.token:
-        for _ in range(args.count):
-            words = gen.generate_batch(3, min_len, max_len, **gen_kwargs)
-            print("-".join(words))
-    elif args.name:
-        first_gen, last_gen = gen
-        for _ in range(args.count):
-            # Generate names with retry logic to ensure length constraints are met
-            max_retries = 50
-            best_first = ""
-            best_last = ""
-            center = (min_len + max_len) // 2
-            def closer(best, cand):
-                return (not best) or abs(len(cand) - center) < abs(len(best) - center)
-            
-            for retry in range(max_retries):
-                first_name = first_gen.generate(min_len, max_len, prefix=args.prefix, suffix=args.suffix).capitalize()
-                last_name = last_gen.generate(min_len, max_len, prefix=args.prefix, suffix=args.suffix).capitalize()
+    try:
+        if args.single:
+            print(gen.generate(min_len, max_len, **gen_kwargs))
+        elif args.token:
+            for _ in range(args.count):
+                words = gen.generate_batch(3, min_len, max_len, **gen_kwargs)
+                print("-".join(words))
+        elif args.name:
+            first_gen, last_gen = gen
+            for _ in range(args.count):
+                # Generate names with retry logic to ensure length constraints are met
+                max_retries = 50
+                best_first = ""
+                best_last = ""
+                center = (min_len + max_len) // 2
+                def closer(best, cand):
+                    return (not best) or abs(len(cand) - center) < abs(len(best) - center)
                 
-                # Check if both names meet the length constraints
-                if (min_len <= len(first_name) <= max_len and 
-                    min_len <= len(last_name) <= max_len):
-                    print(f"{first_name} {last_name}")
-                    break
+                for retry in range(max_retries):
+                    first_name = first_gen.generate(min_len, max_len, prefix=args.prefix, suffix=args.suffix).capitalize()
+                    last_name = last_gen.generate(min_len, max_len, prefix=args.prefix, suffix=args.suffix).capitalize()
                     
-                # Keep track of best candidates for fallback
-                if closer(best_first, first_name):
-                    best_first = first_name
-                if closer(best_last, last_name):
-                    best_last = last_name
-            else:
-                # Fallback with best candidates that are closest to target length
-                print(f"{best_first} {best_last}")
-    else:
-        words = gen.generate_batch(args.count, min_len, max_len, **gen_kwargs)
-        max_width = max(max(len(word) for word in words), 12)
-        for i in range(0, len(words), 5):
-            row = words[i:i+5]
-            print("  ".join(f"{word:<{max_width}}" for word in row))
+                    # Check if both names meet the length constraints
+                    if (min_len <= len(first_name) <= max_len and 
+                        min_len <= len(last_name) <= max_len):
+                        print(f"{first_name} {last_name}")
+                        break
+                        
+                    # Keep track of best candidates for fallback
+                    if closer(best_first, first_name):
+                        best_first = first_name
+                    if closer(best_last, last_name):
+                        best_last = last_name
+                else:
+                    # Fallback with best candidates that are closest to target length
+                    print(f"{best_first} {best_last}")
+        else:
+            words = gen.generate_batch(args.count, min_len, max_len, **gen_kwargs)
+            max_width = max(max(len(word) for word in words), 12)
+            for i in range(0, len(words), 5):
+                row = words[i:i+5]
+                print("  ".join(f"{word:<{max_width}}" for word in row))
+    except GenerationError as e:
+        print(str(e), file=sys.stderr)
+        sys.exit(1)
 
 
 def main():
@@ -195,6 +200,11 @@ def main():
                        help="show character-by-character generation trace (Markov mode only)")
     parser.add_argument("--list", action="store_true",
                        help="list all available word lists and exit")
+    morph_group = parser.add_mutually_exclusive_group()
+    morph_group.add_argument("--morphology", dest="morphology", action="store_true", default=True,
+                       help="enable Hunspell morphological expansion (default)")
+    morph_group.add_argument("--no-morphology", dest="morphology", action="store_false",
+                       help="disable Hunspell morphological expansion")
     
     args = parser.parse_args()
     

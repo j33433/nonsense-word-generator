@@ -1,8 +1,8 @@
 """Markov chain-based nonsense word generator."""
 
-import sys
 import secrets
 from collections import defaultdict, Counter
+from errors import GenerationError
 from cache_manager import CacheManager
 from word_loader import load_words
 from debug import Debug
@@ -11,7 +11,8 @@ from debug import Debug
 class MarkovWordGenerator:
     """Generate pronounceable nonsense words using Markov chains trained on English words."""
     
-    def __init__(self, order=2, cutoff=0.1, verbose=False, words="en", reverse_mode=False, trace=False):
+    SCHEMA_VERSION = 1
+    def __init__(self, order=2, cutoff=0.1, verbose=False, words="en", reverse_mode=False, trace=False, morphology=True, rng=None):
         """Initialize the Markov chain generator.
         
         Args:
@@ -31,14 +32,20 @@ class MarkovWordGenerator:
         self.chains = defaultdict(Counter)
         self.start_chains = Counter()
         self.cache_manager = CacheManager()
+        self.morphology = morphology
+        self.rng = rng or secrets
         
         # Generate cache key
         safe_words = words.replace(":", "_").replace("/", "_").replace(".", "_")
         if len(safe_words) > 50:  # Handle long URLs
             safe_words = f"url_{self.cache_manager.get_url_hash(words)}"
-        
-        reverse_suffix = "_reversed" if reverse_mode else ""
-        self.cache_file = self.cache_manager.get_cache_path(f"markov_chains_order{order}_{safe_words}{reverse_suffix}")
+        cache_key = self.cache_manager.build_cache_key("markov_chains", {
+            "order": order,
+            "words": safe_words,
+            "reverse": reverse_mode,
+            "schema": self.SCHEMA_VERSION
+        })
+        self.cache_file = self.cache_manager.get_cache_path(cache_key)
         self.start_marker = "^" * self.order
         
         self._load_or_build_chains()
@@ -70,7 +77,7 @@ class MarkovWordGenerator:
             RuntimeError: If word loading fails or contains no valid words
         """
         self.dbg.print("Loading words...")
-        self.word_set = load_words(self.word_list_type, verbose=self.dbg.verbose, cache_manager=self.cache_manager)
+        self.word_set = load_words(self.word_list_type, verbose=self.dbg.verbose, cache_manager=self.cache_manager, expand_morphology=self.morphology)
         
         if not self.word_set:
             raise RuntimeError("No valid words found")
@@ -103,7 +110,8 @@ class MarkovWordGenerator:
             'start_chains': self.start_chains,
             'order': self.order,
             'reverse_mode': self.reverse_mode,
-            'word_count': len(self.word_set)
+            'word_count': len(self.word_set),
+            'schema_version': self.SCHEMA_VERSION
         }
         
         if self.cache_manager.save_data(self.cache_file, cache_data):
@@ -119,7 +127,8 @@ class MarkovWordGenerator:
         
         if (cache_data is None or 
             cache_data.get('order') != self.order or 
-            cache_data.get('reverse_mode') != self.reverse_mode):
+            cache_data.get('reverse_mode') != self.reverse_mode or
+            cache_data.get('schema_version') != self.SCHEMA_VERSION):
             self.dbg.print("Cache invalid or parameters mismatch, rebuilding...")
             self._load_and_build_chains()
             return
@@ -131,10 +140,21 @@ class MarkovWordGenerator:
         self.start_chains = cache_data['start_chains']
         
         # Load word set fresh from word_loader (it's already cached there)
-        self.word_set = load_words(self.word_list_type, verbose=False, cache_manager=self.cache_manager)
+        self.word_set = load_words(self.word_list_type, verbose=False, cache_manager=self.cache_manager, expand_morphology=self.morphology)
         
         self.dbg.print(f"Loaded {len(self.chains)} chain states from cache")
         self.dbg.print(f"Using {cache_data['word_count']} cached training words")
+
+    def _randbelow(self, n):
+        """Random integer in [0, n) using injected RNG."""
+        if hasattr(self.rng, "randbelow"):
+            return self.rng.randbelow(n)
+        # Fallback for random.Random
+        return self.rng.randrange(n)
+
+    def _choice(self, seq):
+        """Random choice using injected RNG."""
+        return self.rng.choice(seq)
 
     def _weighted_choice(self, counter, context=""):
         """Choose randomly from a Counter, filtering by relative probability.
@@ -165,7 +185,7 @@ class MarkovWordGenerator:
         if not items_weights:
             items_weights = list(counter.items())
         items, weights = zip(*items_weights)
-        r = secrets.randbelow(sum(weights))
+        r = self._randbelow(sum(weights))
         for item, weight in zip(items, weights):
             r -= weight
             if r < 0:
@@ -258,18 +278,22 @@ class MarkovWordGenerator:
                     if next_char != "^":
                         self.dbg.trace(f"New state: '{current}'")
         
-        # Print helpful error message and exit
-        print(f"Error: Could not generate a valid word after {max_retries} attempts.", file=sys.stderr)
-        print(f"Try adjusting parameters:", file=sys.stderr)
-        print(f"  - Decrease --cutoff (current: {self.cutoff}) to allow more character transitions", file=sys.stderr)
-        print(f"  - Try a lower --order (current: {self.order}) for more flexibility", file=sys.stderr)
-        print(f"  - Widen length range (current: {min_len}-{max_len})", file=sys.stderr)
-        print(f"  - Try a different word list (current: {self.word_list_type})", file=sys.stderr)
+        # Raise a helpful exception with suggestions
+        tips = [
+            "Try adjusting parameters:",
+            f"  - Decrease --cutoff (current: {self.cutoff}) to allow more character transitions",
+            f"  - Try a lower --order (current: {self.order}) for more flexibility",
+            f"  - Widen length range (current: {min_len}-{max_len})",
+            f"  - Try a different word list (current: {self.word_list_type})"
+        ]
         if prefix:
-            print(f"  - Use a shorter or different prefix (current: '{prefix}')", file=sys.stderr)
+            tips.append(f"  - Use a shorter or different prefix (current: '{prefix}')")
         if suffix:
-            print(f"  - Use a shorter or different suffix (current: '{suffix}')", file=sys.stderr)
-        sys.exit(1)
+            tips.append(f"  - Use a shorter or different suffix (current: '{suffix}')")
+        message = "Error: Could not generate a valid word after {} attempts.\n{}".format(
+            max_retries, "\n".join(tips)
+        )
+        raise GenerationError(message)
 
     def generate_with_prefix(self, prefix, min_len=3, max_len=10, max_retries=200):
         """Generate a single word starting with the given prefix using the Markov chain.
@@ -545,7 +569,8 @@ class MarkovWordGenerator:
                       min_len=3, 
                       max_len=10,
                       prefix=None,
-                      suffix=None):
+                      suffix=None,
+                      max_retries=200):
         """Generate multiple words.
         
         Args:
@@ -558,5 +583,5 @@ class MarkovWordGenerator:
         Returns:
             list: List of generated words
         """
-        return [self.generate(min_len, max_len, prefix=prefix, suffix=suffix) for _ in range(count)]
+        return [self.generate(min_len, max_len, max_retries=max_retries, prefix=prefix, suffix=suffix) for _ in range(count)]
 

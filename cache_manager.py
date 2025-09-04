@@ -5,6 +5,7 @@ import json
 import hashlib
 import re
 import tempfile
+import glob
 
 
 class CacheManager:
@@ -169,3 +170,35 @@ class CacheManager:
                 restored['start_chains'] = Counter(restored['start_chains'])
             return restored
         return data
+
+    def build_cache_key(self, kind, params):
+        """Normalize and build a cache key string from kind and parameters."""
+        def _sanitize(v):
+            s = str(v)
+            s = re.sub(r'[^\w\-_.]', '_', s)
+            s = s.replace('..', '_')
+            return s
+        parts = [kind]
+        for k in sorted(params.keys()):
+            parts.append(f"{_sanitize(k)}={_sanitize(params[k])}")
+        return "_".join(parts)
+
+    def list_cache(self, pattern=None):
+        """List cached files, optionally filtered by a glob pattern."""
+        if not os.path.isdir(self.cache_dir):
+            return []
+        if pattern:
+            return sorted(glob.glob(os.path.join(self.cache_dir, pattern)))
+        return sorted(os.path.join(self.cache_dir, f) for f in os.listdir(self.cache_dir))
+
+    def clear_cache(self, pattern=None):
+        """Clear cache files. If pattern is provided, only matching files are removed."""
+        paths = self.list_cache(pattern)
+        removed = 0
+        for p in paths:
+            try:
+                os.remove(p)
+                removed += 1
+            except Exception:
+                pass
+        return removed

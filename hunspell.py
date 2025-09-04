@@ -1,11 +1,10 @@
 """Hunspell dictionary file parser for extracting word lists."""
 
 import os
-import urllib.request
 import hashlib
 import re
-import socket
-import ipaddress
+from constants import WORD_MIN_LEN, WORD_MAX_LEN
+from net_utils import download_file
 
 
 def parse_affix_rules(aff_content):
@@ -66,6 +65,21 @@ def parse_affix_rules(aff_content):
     return rules
 
 
+def _condition_matches(word, condition):
+    """Check if a word satisfies a simplified Hunspell condition."""
+    try:
+        if condition == '.':
+            return True
+        if condition.startswith('[') and condition.endswith(']'):
+            char_class = condition[1:-1]
+            return bool(word) and word[-1] in char_class
+        if condition.endswith('$'):
+            pattern = condition[:-1]
+            return word.endswith(pattern)
+        return word.endswith(condition)
+    except Exception:
+        return False
+
 def apply_affix_rules(word, flags, affix_rules):
     """Apply affix rules to generate morphological variants.
     
@@ -85,26 +99,7 @@ def apply_affix_rules(word, flags, affix_rules):
                 try:
                     # Check if the condition matches
                     condition = rule['condition']
-                    if condition == '.':
-                        # Always applies
-                        matches = True
-                    else:
-                        # Simple regex matching - handle basic patterns
-                        if condition.startswith('[') and condition.endswith(']'):
-                            # Character class like [aeiou]
-                            char_class = condition[1:-1]
-                            if word and word[-1] in char_class:
-                                matches = True
-                            else:
-                                matches = False
-                        elif condition.endswith('$'):
-                            # Ends with pattern
-                            pattern = condition[:-1]
-                            matches = word.endswith(pattern)
-                        else:
-                            # Simple suffix check
-                            matches = word.endswith(condition)
-                    
+                    matches = _condition_matches(word, condition)
                     if matches:
                         # Apply the transformation
                         strip = rule['strip']
@@ -122,7 +117,7 @@ def apply_affix_rules(word, flags, affix_rules):
                                 new_word = add + word
                         
                         # Only add valid words
-                        if new_word.isalpha() and 2 <= len(new_word) <= 20:
+                        if new_word.isalpha() and WORD_MIN_LEN <= len(new_word) <= 20:
                             variants.add(new_word.lower())
                             
                 except (IndexError, AttributeError):
@@ -199,7 +194,7 @@ def parse_hunspell_dic(file_path, expand_morphology=True):
             flags = parts[1].strip() if len(parts) > 1 else ''
             
             # Only process alphabetic words of reasonable length
-            if word.isalpha() and 2 <= len(word) <= 15:
+            if word.isalpha() and WORD_MIN_LEN <= len(word) <= WORD_MAX_LEN:
                 base_word = word.lower()
                 words.add(base_word)
                 
@@ -242,116 +237,18 @@ def download_hunspell_dict(url, cache_dir="cache", lang_code=None):
     if os.path.exists(dic_file):
         return dic_file
 
-    def _is_safe_url(u):
-        try:
-            parsed = urllib.parse.urlparse(u)
-            if parsed.scheme not in ('http', 'https'):
-                return False
-            hostname = parsed.hostname
-            if not hostname:
-                return False
-            if hostname.lower() in ('localhost',):
-                return False
-            try:
-                addrinfos = socket.getaddrinfo(hostname, None)
-            except Exception:
-                return False
-            if not addrinfos:
-                return False
-            for ai in addrinfos:
-                ip_str = ai[4][0]
-                try:
-                    ip_obj = ipaddress.ip_address(ip_str)
-                except ValueError:
-                    return False
-                if not ip_obj.is_global:
-                    return False
-            return True
-        except Exception:
-            return False
+    # Download .dic file
+    download_file(url, dic_file, expect_text=True)
 
-    def _download(url_in, target_path, expect_text=True, timeout=30, max_size=50 * 1024 * 1024):
-        if not _is_safe_url(url_in):
-            raise RuntimeError(f"Unsafe URL blocked: {url_in}")
-        os.makedirs(os.path.dirname(target_path), exist_ok=True)
-        temp_path = target_path + ".tmp"
-        # Clean up any existing temp file
-        if os.path.exists(temp_path):
-            os.remove(temp_path)
-        request = urllib.request.Request(url_in)
-        request.add_header('User-Agent', 'nonsense-word-generator/1.0')
-        with urllib.request.urlopen(request, timeout=timeout) as response:
-            final_url = response.geturl()
-            if not _is_safe_url(final_url):
-                raise RuntimeError(f"Unsafe redirect target blocked: {final_url}")
-            content_length = response.headers.get('Content-Length')
-            if content_length and int(content_length) > max_size:
-                raise RuntimeError("File too large (>50MB)")
-            if expect_text:
-                content_type = response.headers.get('Content-Type', '')
-                ct_main = content_type.split(';', 1)[0].strip().lower() if content_type else ''
-                if ct_main and not (ct_main.startswith('text/') or ct_main == 'application/octet-stream'):
-                    raise RuntimeError(f"Unexpected content type: {content_type}")
-            downloaded = 0
-            with open(temp_path, 'wb') as f:
-                try:
-                    os.chmod(temp_path, 0o600)
-                except Exception:
-                    pass
-                while True:
-                    chunk = response.read(8192)
-                    if not chunk:
-                        break
-                    downloaded += len(chunk)
-                    if downloaded > max_size:
-                        raise RuntimeError("File too large (>50MB)")
-                    f.write(chunk)
-        if os.path.getsize(temp_path) == 0:
-            try:
-                os.remove(temp_path)
-            except Exception:
-                pass
-            raise RuntimeError("Downloaded file is empty")
-        # Refuse to overwrite a symlink; replace atomically otherwise
-        if os.path.islink(target_path):
-            try:
-                os.remove(temp_path)
-            except Exception:
-                pass
-            raise RuntimeError("Refusing to overwrite symlink at target path")
-        os.replace(temp_path, target_path)
-
-    temp_dic = None
-    temp_aff = None
+    # Best-effort download of corresponding .aff file for morphology
+    aff_url = url.replace('.dic', '.aff')
     try:
-        # Download .dic file safely
-        temp_dic = dic_file + ".tmp"
-        _download(url, dic_file, expect_text=True)
+        download_file(aff_url, aff_file, expect_text=True)
+    except Exception:
+        # Continue without morphology on failure
+        pass
 
-        # Try to download corresponding .aff file for morphology (best effort)
-        aff_url = url.replace('.dic', '.aff')
-        try:
-            temp_aff = aff_file + ".tmp"
-            _download(aff_url, aff_file, expect_text=True)
-        except Exception:
-            # Continue without morphology on failure
-            if temp_aff and os.path.exists(temp_aff):
-                try:
-                    os.remove(temp_aff)
-                except Exception:
-                    pass
-
-        return dic_file
-
-    except Exception as e:
-        # Clean up temp files on failure
-        for t in (temp_dic, temp_aff):
-            try:
-                if t and os.path.exists(t):
-                    os.remove(t)
-            except Exception:
-                pass
-        raise RuntimeError(f"Failed to download Hunspell dictionary from '{url}': {e}")
+    return dic_file
 
 
 HUNSPELL_DICT_URLS = {
