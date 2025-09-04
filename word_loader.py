@@ -3,6 +3,8 @@
 import os
 import urllib.request
 import urllib.parse
+import socket
+import ipaddress
 from hunspell import get_hunspell_words, HUNSPELL_DICT_URLS
 from cache_manager import CacheManager
 
@@ -62,30 +64,30 @@ def is_safe_url(url):
     """
     try:
         parsed = urllib.parse.urlparse(url)
-        
-        # Only allow http/https
         if parsed.scheme not in ('http', 'https'):
             return False
-        
-        # Block private/local networks
         hostname = parsed.hostname
         if not hostname:
             return False
-        
-        # Block localhost and private IPs
-        if hostname.lower() in ('localhost', '127.0.0.1', '::1'):
+        # Quick hostname blocks
+        if hostname.lower() in ('localhost',):
             return False
-        
-        # Block private IP ranges (basic check)
-        if (hostname.startswith('192.168.') or 
-            hostname.startswith('10.') or 
-            hostname.startswith('172.')):
+        # Resolve host to IPs and ensure all are globally routable
+        try:
+            addrinfos = socket.getaddrinfo(hostname, None)
+        except Exception:
             return False
-        
-        # Block file:// and other schemes
-        if parsed.scheme not in ('http', 'https'):
+        if not addrinfos:
             return False
-            
+        for ai in addrinfos:
+            ip_str = ai[4][0]
+            try:
+                ip_obj = ipaddress.ip_address(ip_str)
+            except ValueError:
+                return False
+            # Only allow global addresses (reject private, loopback, link-local, multicast, reserved, unspecified)
+            if not ip_obj.is_global:
+                return False
         return True
     except Exception:
         return False
@@ -193,6 +195,14 @@ def _download_word_file(url, target_path):
         request.add_header('User-Agent', 'nonsense-word-generator/1.0')
         
         with urllib.request.urlopen(request, timeout=30) as response:
+            # Validate final URL after redirects
+            final_url = response.geturl()
+            if not is_safe_url(final_url):
+                raise RuntimeError(f"Unsafe redirect target blocked: {final_url}")
+            # Optional content type check
+            content_type = response.headers.get('Content-Type', '')
+            if content_type and not content_type.startswith('text/'):
+                raise RuntimeError(f"Unexpected content type: {content_type}")
             # Check content length
             content_length = response.headers.get('Content-Length')
             if content_length and int(content_length) > 50 * 1024 * 1024:  # 50MB limit
@@ -203,6 +213,7 @@ def _download_word_file(url, target_path):
             downloaded = 0
             
             with open(temp_file, 'wb') as f:
+                os.chmod(temp_file, 0o600)
                 while True:
                     chunk = response.read(8192)
                     if not chunk:
@@ -216,8 +227,10 @@ def _download_word_file(url, target_path):
         if os.path.getsize(temp_file) == 0:
             raise RuntimeError("Downloaded file is empty")
         
-        # Atomic move
-        os.rename(temp_file, target_path)
+        # Atomic move with symlink check
+        if os.path.islink(target_path):
+            raise RuntimeError("Refusing to overwrite symlink at target path")
+        os.replace(temp_file, target_path)
         
     except Exception as e:
         # Clean up temp file on failure

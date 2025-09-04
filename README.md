@@ -152,7 +152,7 @@ words = generator.generate_batch(10)
 - Use `--verbose` to see initialization progress
 
 ## Vibe Coded 🤖
-Aider with Claude
+Aider with Claude and ChatGPT
 
 ## License
 MIT

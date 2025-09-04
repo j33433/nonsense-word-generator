@@ -4,6 +4,7 @@ import os
 import json
 import hashlib
 import re
+import tempfile
 
 
 class CacheManager:
@@ -66,10 +67,32 @@ class CacheManager:
         try:
             # Convert Counter objects to regular dicts for JSON serialization
             serializable_data = self._make_serializable(data)
-            with open(cache_path, 'w', encoding='utf-8') as f:
+            cache_dir = os.path.dirname(cache_path) or "."
+            os.makedirs(cache_dir, exist_ok=True)
+            temp_path = cache_path + ".tmp"
+            with open(temp_path, 'w', encoding='utf-8') as f:
+                # Restrictive permissions
+                try:
+                    os.chmod(temp_path, 0o600)
+                except Exception:
+                    pass
                 json.dump(serializable_data, f)
+            # Refuse to overwrite a symlink
+            if os.path.islink(cache_path):
+                try:
+                    os.remove(temp_path)
+                except Exception:
+                    pass
+                return False
+            os.replace(temp_path, cache_path)
             return True
         except Exception:
+            # Best-effort cleanup
+            try:
+                if 'temp_path' in locals() and os.path.exists(temp_path):
+                    os.remove(temp_path)
+            except Exception:
+                pass
             return False
     
     def load_data(self, cache_path):
