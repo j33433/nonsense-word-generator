@@ -48,11 +48,21 @@ def validate_args(args):
     Returns:
         tuple: (min_len, max_len) validated length parameters
     """
-    # Auto-enable Markov mode if Markov-specific options are used
-    args.markov = args.markov or any([
-        args.order != 2, args.cutoff != 0.1, args.words != "en",
-        bool(args.prefix), bool(args.suffix), args.trace
-    ])
+    # Auto-enable Markov mode if any Markov-related flags were explicitly provided by name
+    argv = sys.argv[1:]
+    def flag_provided(name):
+        return any(arg == name or arg.startswith(f"{name}=") for arg in argv)
+    markov_trigger_flags = [
+        "--words",
+        "--order",
+        "--cutoff",
+        "--prefix",
+        "--suffix",
+        "--trace",
+        "--markov",
+    ]
+    provided_any = any(flag_provided(flag) for flag in markov_trigger_flags)
+    args.markov = args.markov or provided_any
     
     # Parse and validate length
     if args.length:
