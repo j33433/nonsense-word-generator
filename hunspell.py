@@ -215,7 +215,7 @@ def download_hunspell_dict(url, cache_dir=None, lang_code=None):
     
     Args:
         url: URL to download the .dic file from
-        cache_dir: Directory to cache the downloaded file (default: ~/.cache/nonsense_generator)
+        cache_dir: Directory to cache the downloaded file (default: ~/.cache/wordagen)
         lang_code: Language code for more readable filenames (optional)
         
     Returns:

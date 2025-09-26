@@ -21,7 +21,7 @@ END_MARKER = "<!-- END_EXAMPLES -->"
 
 ROOT = Path(__file__).resolve().parents[1]
 README_PATH = ROOT / "README.md"
-SCRIPT_REL = "nonsense_generator.py"  # relative to ROOT
+SCRIPT_REL = "wordagen.py"  # relative to ROOT
 
 PY_DISPLAY = "python"  # what we show in README
 PY_EXEC = sys.executable  # what we actually use to run

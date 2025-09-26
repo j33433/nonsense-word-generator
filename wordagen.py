@@ -34,9 +34,9 @@ def list_word_sources():
     print("You can also use custom URLs starting with http:// or https://")
     print()
     print("Examples:")
-    print("  python nonsense_generator.py --markov --words=en")
-    print("  python nonsense_generator.py --markov --words=es")
-    print("  python nonsense_generator.py --markov --words=https://example.com/wordlist.txt")
+    print("  python wordagen.py --markov --words=en")
+    print("  python wordagen.py --markov --words=es")
+    print("  python wordagen.py --markov --words=https://example.com/wordlist.txt")
 
 
 def validate_args(args):

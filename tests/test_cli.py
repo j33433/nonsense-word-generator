@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Test script for nonsense_generator.py CLI functionality."""
+"""Test script for wordagen.py CLI functionality."""
 
 import subprocess
 import sys
@@ -9,10 +9,16 @@ import shutil
 
 
 def cleanup_cache():
-    """Remove cache directory and all its contents."""
-    if os.path.exists("cache"):
-        shutil.rmtree("cache")
-        print("Cleaned up cache directory")
+    """Remove the default cache directory (~/.cache/wordagen) and all its contents."""
+    cache_path = os.path.join(os.path.expanduser("~"), ".cache", "wordagen")
+    if os.path.isdir(cache_path):
+        try:
+            shutil.rmtree(cache_path, ignore_errors=True)
+            print(f"Cleaned up cache directory: {cache_path}")
+        except Exception as e:
+            print(f"Warning: failed to remove cache directory {cache_path}: {e}")
+    else:
+        print("No cache directories found to clean")
 
 
 def run_command(cmd):
@@ -40,13 +46,13 @@ def test_single_mode():
     print("Testing --single mode...")
     
     tests = [
-        ("python3 nonsense_generator.py --single", 8, 12),
-        ("python3 nonsense_generator.py --single --length=5-8", 5, 8),
-        ("python3 nonsense_generator.py --single --length=10", 10, 10),
-        ("python3 nonsense_generator.py --single --length=2-4", 2, 4),
-        ("python3 nonsense_generator.py --single --markov", 8, 12),
-        ("python3 nonsense_generator.py --single --markov --length=6-15", 6, 15),
-        ("python3 nonsense_generator.py --single --markov --order=3 --length=4-7", 4, 7),
+        ("python3 wordagen.py --single", 8, 12),
+        ("python3 wordagen.py --single --length=5-8", 5, 8),
+        ("python3 wordagen.py --single --length=10", 10, 10),
+        ("python3 wordagen.py --single --length=2-4", 2, 4),
+        ("python3 wordagen.py --single --markov", 8, 12),
+        ("python3 wordagen.py --single --markov --length=6-15", 6, 15),
+        ("python3 wordagen.py --single --markov --order=3 --length=4-7", 4, 7),
     ]
     
     for cmd, min_len, max_len in tests:
@@ -78,12 +84,12 @@ def test_token_mode():
     print("\nTesting --token mode...")
     
     tests = [
-        ("python3 nonsense_generator.py --token", 5, 8),
-        ("python3 nonsense_generator.py --token --length=3-6", 3, 6),
-        ("python3 nonsense_generator.py --token --length=8", 8, 8),
-        ("python3 nonsense_generator.py --token --markov", 5, 8),
-        ("python3 nonsense_generator.py --token --markov --length=2-5", 2, 5),
-        ("python3 nonsense_generator.py --token --markov --order=3 --length=6-10", 6, 10),
+        ("python3 wordagen.py --token", 5, 8),
+        ("python3 wordagen.py --token --length=3-6", 3, 6),
+        ("python3 wordagen.py --token --length=8", 8, 8),
+        ("python3 wordagen.py --token --markov", 5, 8),
+        ("python3 wordagen.py --token --markov --length=2-5", 2, 5),
+        ("python3 wordagen.py --token --markov --order=3 --length=6-10", 6, 10),
     ]
     
     for cmd, min_len, max_len in tests:
@@ -134,14 +140,14 @@ def test_name_mode():
     print("\nTesting --name mode...")
     
     tests = [
-        ("python3 nonsense_generator.py --name", 6, 20, 1),
-        ("python3 nonsense_generator.py --name --length=3-6", 3, 6, 1),
-        ("python3 nonsense_generator.py --name --length=8", 8, 8, 1),
-        ("python3 nonsense_generator.py --name --order=2 --length=2-5", 2, 5, 1),
-        ("python3 nonsense_generator.py --name --order=3 --length=6-12", 6, 12, 1),
-        ("python3 nonsense_generator.py --name --cutoff=0.05 --length=4-8", 4, 8, 1),
-        ("python3 nonsense_generator.py --name --count=3", 6, 20, 3),
-        ("python3 nonsense_generator.py --name --count=5 --length=4-7", 4, 7, 5),
+        ("python3 wordagen.py --name", 6, 20, 1),
+        ("python3 wordagen.py --name --length=3-6", 3, 6, 1),
+        ("python3 wordagen.py --name --length=8", 8, 8, 1),
+        ("python3 wordagen.py --name --order=2 --length=2-5", 2, 5, 1),
+        ("python3 wordagen.py --name --order=3 --length=6-12", 6, 12, 1),
+        ("python3 wordagen.py --name --cutoff=0.05 --length=4-8", 4, 8, 1),
+        ("python3 wordagen.py --name --count=3", 6, 20, 3),
+        ("python3 wordagen.py --name --count=5 --length=4-7", 4, 7, 5),
     ]
     
     for cmd, min_len, max_len, expected_count in tests:
@@ -190,12 +196,12 @@ def test_batch_mode():
     print("\nTesting batch mode...")
     
     tests = [
-        ("python3 nonsense_generator.py", 50, 5, 12),
-        ("python3 nonsense_generator.py --count=10", 10, 5, 12),
-        ("python3 nonsense_generator.py --count=5 --length=4-6", 5, 4, 6),
-        ("python3 nonsense_generator.py --markov --count=8", 8, 5, 12),
-        ("python3 nonsense_generator.py --markov --count=12 --length=2-5", 12, 2, 5),
-        ("python3 nonsense_generator.py --markov --order=3 --count=6 --length=7-12", 6, 7, 12),
+        ("python3 wordagen.py", 50, 5, 12),
+        ("python3 wordagen.py --count=10", 10, 5, 12),
+        ("python3 wordagen.py --count=5 --length=4-6", 5, 4, 6),
+        ("python3 wordagen.py --markov --count=8", 8, 5, 12),
+        ("python3 wordagen.py --markov --count=12 --length=2-5", 12, 2, 5),
+        ("python3 wordagen.py --markov --order=3 --count=6 --length=7-12", 6, 7, 12),
     ]
     
     for cmd, expected_count, min_len, max_len in tests:
@@ -243,12 +249,12 @@ def test_error_cases():
     print("\nTesting error cases...")
     
     error_tests = [
-        "python3 nonsense_generator.py --length=invalid",
-        "python3 nonsense_generator.py --length=10-5",  # max < min
-        "python3 nonsense_generator.py --length=0-5",   # min < 1
-        "python3 nonsense_generator.py --single --length=-1",
-        "python3 nonsense_generator.py --markov --words=invalid_language",
-        "python3 nonsense_generator.py --name --words=es",  # --words with --name
+        "python3 wordagen.py --length=invalid",
+        "python3 wordagen.py --length=10-5",  # max < min
+        "python3 wordagen.py --length=0-5",   # min < 1
+        "python3 wordagen.py --single --length=-1",
+        "python3 wordagen.py --markov --words=invalid_language",
+        "python3 wordagen.py --name --words=es",  # --words with --name
     ]
     
     for cmd in error_tests:
@@ -265,12 +271,12 @@ def test_markov_parameters():
     print("\nTesting Markov parameters...")
     
     tests = [
-        "python3 nonsense_generator.py --markov --order=1 --single",
-        "python3 nonsense_generator.py --markov --order=3 --cutoff=0.05 --single",
-        "python3 nonsense_generator.py --markov --words=es --single",
-        "python3 nonsense_generator.py --markov --words=names --single",
-        "python3 nonsense_generator.py --markov --verbose --single",
-        "python3 nonsense_generator.py --markov --words=https://raw.githubusercontent.com/jneidel/animal-names/refs/heads/master/animals-common.txt --single",
+        "python3 wordagen.py --markov --order=1 --single",
+        "python3 wordagen.py --markov --order=3 --cutoff=0.05 --single",
+        "python3 wordagen.py --markov --words=es --single",
+        "python3 wordagen.py --markov --words=names --single",
+        "python3 wordagen.py --markov --verbose --single",
+        "python3 wordagen.py --markov --words=https://raw.githubusercontent.com/jneidel/animal-names/refs/heads/master/animals-common.txt --single",
     ]
     
     for cmd in tests:
@@ -299,13 +305,13 @@ def test_prefix_functionality():
     print("\nTesting prefix functionality...")
     
     tests = [
-        ("python3 nonsense_generator.py --markov --prefix=steve --single", "steve"),
-        ("python3 nonsense_generator.py --markov --prefix=joe --single", "joe"),
-        ("python3 nonsense_generator.py --markov --prefix=test --single", "test"),
-        ("python3 nonsense_generator.py --markov --words=names --prefix=james --single", "james"),
-        ("python3 nonsense_generator.py --markov --prefix=cat --count=5", "cat"),
-        ("python3 nonsense_generator.py --markov --prefix=dog --token", "dog"),
-        ("python3 nonsense_generator.py --name --prefix=alex", "alex"),
+        ("python3 wordagen.py --markov --prefix=steve --single", "steve"),
+        ("python3 wordagen.py --markov --prefix=joe --single", "joe"),
+        ("python3 wordagen.py --markov --prefix=test --single", "test"),
+        ("python3 wordagen.py --markov --words=names --prefix=james --single", "james"),
+        ("python3 wordagen.py --markov --prefix=cat --count=5", "cat"),
+        ("python3 wordagen.py --markov --prefix=dog --token", "dog"),
+        ("python3 wordagen.py --name --prefix=alex", "alex"),
     ]
     
     for cmd, expected_prefix in tests:
@@ -389,14 +395,14 @@ def test_suffix_functionality():
     print("\nTesting suffix functionality...")
     
     tests = [
-        ("python3 nonsense_generator.py --markov --suffix=ing --single", "ing"),
-        ("python3 nonsense_generator.py --markov --suffix=tion --single", "tion"),
-        ("python3 nonsense_generator.py --markov --suffix=ly --single", "ly"),
-        ("python3 nonsense_generator.py --markov --suffix=ed --single", "ed"),
-        ("python3 nonsense_generator.py --markov --words=names --suffix=son --single", "son"),
-        ("python3 nonsense_generator.py --markov --suffix=er --count=5", "er"),
-        ("python3 nonsense_generator.py --markov --suffix=ing --token", "ing"),
-        ("python3 nonsense_generator.py --name --suffix=ton", "ton"),
+        ("python3 wordagen.py --markov --suffix=ing --single", "ing"),
+        ("python3 wordagen.py --markov --suffix=tion --single", "tion"),
+        ("python3 wordagen.py --markov --suffix=ly --single", "ly"),
+        ("python3 wordagen.py --markov --suffix=ed --single", "ed"),
+        ("python3 wordagen.py --markov --words=names --suffix=son --single", "son"),
+        ("python3 wordagen.py --markov --suffix=er --count=5", "er"),
+        ("python3 wordagen.py --markov --suffix=ing --token", "ing"),
+        ("python3 wordagen.py --name --suffix=ton", "ton"),
     ]
     
     for cmd, expected_suffix in tests:
@@ -480,11 +486,11 @@ def test_prefix_suffix_combination():
     print("\nTesting prefix+suffix combination...")
     
     tests = [
-        ("python3 nonsense_generator.py --markov --prefix=pre --suffix=ing --single", "pre", "ing"),
-        ("python3 nonsense_generator.py --markov --prefix=un --suffix=able --single", "un", "able"),
-        ("python3 nonsense_generator.py --markov --prefix=test --suffix=ly --single", "test", "ly"),
-        ("python3 nonsense_generator.py --markov --prefix=cat --suffix=ed --count=3", "cat", "ed"),
-        ("python3 nonsense_generator.py --name --prefix=john --suffix=son", "john", "son"),
+        ("python3 wordagen.py --markov --prefix=pre --suffix=ing --single", "pre", "ing"),
+        ("python3 wordagen.py --markov --prefix=un --suffix=able --single", "un", "able"),
+        ("python3 wordagen.py --markov --prefix=test --suffix=ly --single", "test", "ly"),
+        ("python3 wordagen.py --markov --prefix=cat --suffix=ed --count=3", "cat", "ed"),
+        ("python3 wordagen.py --name --prefix=john --suffix=son", "john", "son"),
     ]
     
     for cmd, expected_prefix, expected_suffix in tests:
@@ -579,7 +585,7 @@ def test_all_languages():
             print(f"  SKIP: {lang} (not in available languages)")
             continue
             
-        cmd = f"python3 nonsense_generator.py --markov --words={lang} --single --length=5-8"
+        cmd = f"python3 wordagen.py --markov --words={lang} --single --length=5-8"
         output, code = run_command(cmd)
         
         if code != 0:
@@ -619,7 +625,7 @@ def test_length_ranges():
         print(f"  Testing range {min_len}-{max_len}:")
         
         # Test with syllable generator
-        cmd = f"python3 nonsense_generator.py --count=20 --length={min_len}-{max_len}"
+        cmd = f"python3 wordagen.py --count=20 --length={min_len}-{max_len}"
         output, code = run_command(cmd)
         
         if code == 0:
@@ -643,7 +649,7 @@ def test_length_ranges():
             print(f"    Syllable: Failed with exit code {code}")
         
         # Test with Markov generator
-        cmd = f"python3 nonsense_generator.py --markov --count=20 --length={min_len}-{max_len}"
+        cmd = f"python3 wordagen.py --markov --count=20 --length={min_len}-{max_len}"
         output, code = run_command(cmd)
         
         if code == 0:
@@ -669,7 +675,7 @@ def test_length_ranges():
 
 def main():
     """Run all tests."""
-    print("Testing nonsense_generator.py CLI functionality")
+    print("Testing wordagen.py CLI functionality")
     print("=" * 50)
     
     # Clean up cache before running tests

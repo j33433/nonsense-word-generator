@@ -15,10 +15,10 @@ class CacheManager:
         """Initialize cache manager.
         
         Args:
-            cache_dir: Directory to store cache files (default: ~/.cache/nonsense_generator)
+            cache_dir: Directory to store cache files (default: ~/.cache/wordagen)
         """
         if cache_dir is None:
-            cache_dir = os.path.join(os.path.expanduser("~"), ".cache", "nonsense_generator")
+            cache_dir = os.path.join(os.path.expanduser("~"), ".cache", "wordagen")
         else:
             cache_dir = os.path.expanduser(cache_dir)
         self.cache_dir = cache_dir
