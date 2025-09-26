@@ -11,14 +11,18 @@ import glob
 class CacheManager:
     """Manages caching for word lists and generated chains."""
     
-    def __init__(self, cache_dir="cache"):
+    def __init__(self, cache_dir=None):
         """Initialize cache manager.
         
         Args:
-            cache_dir: Directory to store cache files
+            cache_dir: Directory to store cache files (default: ~/.cache/nonsense_generator)
         """
+        if cache_dir is None:
+            cache_dir = os.path.join(os.path.expanduser("~"), ".cache", "nonsense_generator")
+        else:
+            cache_dir = os.path.expanduser(cache_dir)
         self.cache_dir = cache_dir
-        os.makedirs(cache_dir, exist_ok=True)
+        os.makedirs(self.cache_dir, exist_ok=True)
     
     def get_cache_path(self, cache_key, extension=".json"):
         """Get the full path for a cache file.

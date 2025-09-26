@@ -5,6 +5,7 @@ import hashlib
 import re
 from constants import WORD_MIN_LEN, WORD_MAX_LEN
 from net_utils import download_file
+from cache_manager import CacheManager
 
 
 def parse_affix_rules(aff_content):
@@ -209,12 +210,12 @@ def parse_hunspell_dic(file_path, expand_morphology=True):
         raise RuntimeError(f"Error parsing Hunspell dictionary {file_path}: {e}")
 
 
-def download_hunspell_dict(url, cache_dir="cache", lang_code=None):
+def download_hunspell_dict(url, cache_dir=None, lang_code=None):
     """Download a Hunspell dictionary from a URL.
     
     Args:
         url: URL to download the .dic file from
-        cache_dir: Directory to cache the downloaded file
+        cache_dir: Directory to cache the downloaded file (default: ~/.cache/nonsense_generator)
         lang_code: Language code for more readable filenames (optional)
         
     Returns:
@@ -223,6 +224,10 @@ def download_hunspell_dict(url, cache_dir="cache", lang_code=None):
     Raises:
         RuntimeError: If the download fails
     """
+    if cache_dir is None:
+        cache_dir = CacheManager().cache_dir
+    else:
+        cache_dir = os.path.expanduser(cache_dir)
     os.makedirs(cache_dir, exist_ok=True)
     
     # Create filename from URL hash, optionally with language code
